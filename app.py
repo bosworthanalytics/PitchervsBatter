@@ -33,6 +33,11 @@ GOLD     = "#C4A962"
 
 MONTH_ORDER = ["March","April","May","June","July","August","September","October"]
 
+def hex_to_rgba(hex_color, alpha=0.15):
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
 HS = {
     "Jung Hoo Lee":
         "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png"
@@ -343,7 +348,7 @@ with t1:
                 r=scores, theta=cats + [cats[0]],
                 fill="toself", name=player,
                 line=dict(color=C[player], width=2),
-                fillcolor=C[player].replace("#", "rgba(") + ",0.15)" if "#" in C[player] else C[player],
+                fillcolor=hex_to_rgba(C[player], 0.15),
                 opacity=0.85,
             ))
         fig_radar.update_layout(
