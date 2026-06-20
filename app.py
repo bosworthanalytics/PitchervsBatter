@@ -177,7 +177,7 @@ def load_mlb_hitting(seasons_tuple):
         for sp in splits:
             p = sp.get("player", {}); t = sp.get("team", {}); s = sp.get("stat", {})
             pa = int(s.get("plateAppearances", 0))
-            if pa < 30: continue
+            if pa < 1: continue
             ab = int(s.get("atBats", 0)); h = int(s.get("hits", 0))
             bb = int(s.get("baseOnBalls", 0)); so = int(s.get("strikeOuts", 0))
             hr = int(s.get("homeRuns", 0))
@@ -221,7 +221,7 @@ def load_mlb_pitching(seasons_tuple):
             ip_raw = str(s.get("inningsPitched","0.0"))
             pts = ip_raw.split(".")
             ip = int(pts[0]) + (int(pts[1])/3 if len(pts)>1 and pts[1] else 0)
-            if ip < 5: continue
+            if ip < 0.1: continue
             er = int(s.get("earnedRuns",0)); h_a = int(s.get("hits",0))
             bb = int(s.get("baseOnBalls",0)); so = int(s.get("strikeOuts",0))
             hr = int(s.get("homeRuns",0)); tbf = int(s.get("battersFaced",0))
