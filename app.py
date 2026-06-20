@@ -38,6 +38,22 @@ def hex_to_rgba(hex_color, alpha=0.15):
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
 
+def grade_label(g):
+    if g >= 80: return "Elite"
+    if g >= 70: return "Well Above Avg"
+    if g >= 65: return "Plus-Plus"
+    if g >= 60: return "Plus"
+    if g >= 55: return "Above Avg"
+    if g == 50: return "Average"
+    if g >= 45: return "Fringe"
+    if g >= 40: return "Below Avg"
+    return "Well Below Avg"
+
+SCOUTING = {
+    "Jung Hoo Lee":     {"Hit": 55, "Power": 40, "Speed": 50, "Field": 55, "Arm": 55},
+    "Ceddanne Rafaela": {"Hit": 40, "Power": 45, "Speed": 70, "Field": 70, "Arm": 70},
+}
+
 HS = {
     "Jung Hoo Lee":
         "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png"
@@ -228,161 +244,127 @@ t1, t2, t3, t4, t5 = st.tabs([
 # TAB 1 — OVERVIEW
 # ════════════════════════════════════════════════════════════════════════════════
 with t1:
-    st.markdown('<div class="section-header">Season Totals at a Glance</div>', unsafe_allow_html=True)
+    st_totals  = season_total(batting)
+    sc_totals  = season_total(statcast)
+    disc_totals = season_total(discipline)
 
-    st_totals = season_total(batting)
-    sc_totals = season_total(statcast)
-    def_data  = defense[defense["Player"].isin(active_players) & defense["Season"].isin(sel_seasons)]
+    # ── Stat Comparison: horizontal grouped bar, latest season, indexed to MLB avg ──
+    st.markdown('<div class="section-header">Key Stats vs. MLB Average — Latest Season</div>', unsafe_allow_html=True)
 
-    # KPI cards — 4 per row
-    METRICS = [
-        ("AVG",  "batting",  "AVG",   ".3f"),
-        ("OBP",  "batting",  "OBP",   ".3f"),
-        ("SLG",  "batting",  "SLG",   ".3f"),
-        ("OPS",  "batting",  "OPS",   ".3f"),
-        ("HR",   "batting",  "HR",    "d"),
-        ("RBI",  "batting",  "RBI",   "d"),
-        ("SB",   "batting",  "SB",    "d"),
-        ("BB",   "batting",  "BB",    "d"),
-    ]
-    SC_METRICS = [
-        ("xBA",      "xBA",        ".3f"),
-        ("xSLG",     "xSLG",       ".3f"),
-        ("Avg EV",   "EV_avg",     ".1f"),
-        ("Hard Hit%","HardHit_pct",".1f"),
-    ]
-
-    # Build latest-season snapshot per player
-    def latest(df, col):
+    def latest_val(df, col):
         out = {}
         for p in active_players:
             sub = df[df["Player"] == p].sort_values("Season", ascending=False)
-            out[p] = sub[col].iloc[0] if len(sub) and pd.notna(sub[col].iloc[0]) else None
+            v = sub[col].iloc[0] if len(sub) and pd.notna(sub[col].iloc[0]) else None
+            out[p] = v
         return out
 
-    mcols = st.columns(4)
-    for idx, (label, src, col, fmt) in enumerate(METRICS):
-        src_df = st_totals
-        vals = latest(src_df, col)
-        with mcols[idx % 4]:
-            for player in active_players:
-                v = vals.get(player)
-                disp = f"{v:{fmt}}" if v is not None else "N/A"
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value" style="color:{C[player]}">{disp}</div>
-                    <div style="font-size:0.75rem;color:#9BA3B8;">{player.split()[0]} {player.split()[-1]}</div>
-                </div>""", unsafe_allow_html=True)
+    # (label, dataframe, column, mlb_avg, display_fmt)
+    COMP_METRICS = [
+        ("AVG",          st_totals,    "AVG",         0.248, "{:.3f}"),
+        ("OBP",          st_totals,    "OBP",         0.320, "{:.3f}"),
+        ("SLG",          st_totals,    "SLG",         0.410, "{:.3f}"),
+        ("OPS",          st_totals,    "OPS",         0.720, "{:.3f}"),
+        ("xBA",          sc_totals,    "xBA",         0.248, "{:.3f}"),
+        ("Avg EV (mph)", sc_totals,    "EV_avg",      88.5,  "{:.1f}"),
+        ("Hard Hit %",   sc_totals,    "HardHit_pct", 37.5,  "{:.1f}%"),
+        ("BB %",         disc_totals,  "BB_pct",       8.5,  "{:.1f}%"),
+        ("K % (lower=better)", disc_totals, "K_pct", 23.0,  "{:.1f}%"),
+    ]
+
+    fig_comp = go.Figure()
+    metric_labels = [m[0] for m in COMP_METRICS]
+    for player in active_players:
+        index_vals, text_vals = [], []
+        for label, df, col, mlb_avg, fmt in COMP_METRICS:
+            v = latest_val(df, col).get(player)
+            if v is not None and mlb_avg:
+                idx = (mlb_avg / v * 100) if "lower=better" in label else (v / mlb_avg * 100)
+                index_vals.append(round(idx, 1))
+                text_vals.append(fmt.format(v))
+            else:
+                index_vals.append(None)
+                text_vals.append("N/A")
+        fig_comp.add_trace(go.Bar(
+            y=metric_labels, x=index_vals, name=player,
+            orientation="h", marker_color=C[player],
+            text=text_vals, textposition="outside",
+            textfont=dict(color=TEXT, size=11),
+            hovertemplate="<b>%{y}</b><br>" + player + ": %{text}<br>Index: %{x:.0f}<extra></extra>",
+        ))
+    fig_comp.add_vline(x=100, line_color=GOLD, line_dash="dash", line_width=2)
+    fig_comp.add_annotation(x=100, y=len(metric_labels) - 0.5, text="MLB Avg (100)",
+                            showarrow=False, font=dict(color=GOLD, size=11), xanchor="left", xshift=4)
+    apply_layout(fig_comp, barmode="group", height=440,
+                 title="Latest Season Performance Index — 100 = MLB Average",
+                 xaxis=dict(range=[50, 170], gridcolor=LINE_CLR, title="Index (100 = MLB Avg)"),
+                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    st.plotly_chart(fig_comp, use_container_width=True)
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Statcast Snapshot</div>', unsafe_allow_html=True)
 
-    sc_cols = st.columns(4)
-    for idx, (label, col, fmt) in enumerate(SC_METRICS):
-        vals = latest(sc_totals, col)
-        with sc_cols[idx]:
-            for player in active_players:
-                v = vals.get(player)
-                disp = f"{v:{fmt}}" if v is not None else "N/A"
-                suf = "%" if "%" in label else (" mph" if "EV" in label else "")
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value" style="color:{C[player]}">{disp}{suf}</div>
-                    <div style="font-size:0.75rem;color:#9BA3B8;">{player.split()[0]} {player.split()[-1]}</div>
-                </div>""", unsafe_allow_html=True)
+    # ── OPS by Season — legend on top ──────────────────────────────────────────
+    st.markdown('<div class="section-header">OPS by Season</div>', unsafe_allow_html=True)
+    ops_data = st_totals.sort_values("Season")
+    fig_ops = go.Figure()
+    for player in active_players:
+        sub = ops_data[ops_data["Player"] == player]
+        fig_ops.add_trace(go.Bar(
+            x=sub["Season"].astype(str), y=sub["OPS"],
+            name=player, marker_color=C[player], text=sub["OPS"].round(3),
+            textposition="outside", textfont=dict(size=12, color=TEXT),
+        ))
+    fig_ops.add_hline(y=0.720, line_dash="dash", line_color=GOLD,
+                      annotation_text="MLB Avg (.720)", annotation_font_color=GOLD,
+                      annotation_position="top right")
+    apply_layout(fig_ops, barmode="group", height=360,
+                 yaxis=dict(range=[0, 1.1], gridcolor=LINE_CLR),
+                 yaxis_title="OPS",
+                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    st.plotly_chart(fig_ops, use_container_width=True)
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # Radar chart + OPS bar side by side
-    r1, r2 = st.columns([1, 1])
+    # ── Scouting Tool Grades (20-80 scale, FanGraphs) ──────────────────────────
+    st.markdown('<div class="section-header">Scouting Tool Grades — 20-80 Scale (FanGraphs)</div>', unsafe_allow_html=True)
 
-    with r1:
-        st.markdown('<div class="section-header">Multi-Metric Radar</div>', unsafe_allow_html=True)
-        # Normalize metrics to 0-100 (higher = better for all)
-        radar_metrics = {
-            "AVG":       ("batting",   "AVG",          False),
-            "OBP":       ("batting",   "OBP",          False),
-            "SLG":       ("batting",   "SLG",          False),
-            "BB%":       ("discipline","BB_pct",       False),
-            "K% (inv)":  ("discipline","K_pct",        True),   # invert: lower K = better
-            "Chase (inv)":("discipline","Chase_pct",   True),
-            "HardHit%":  ("statcast",  "HardHit_pct",  False),
-            "xBA":       ("statcast",  "xBA",          False),
-        }
-        ref_dfs = {"batting": st_totals, "discipline": season_total(discipline),
-                   "statcast": sc_totals}
-
-        def get_radar_vals(player):
-            scores = []
-            for label, (src, col, inv) in radar_metrics.items():
-                df = ref_dfs[src]
-                sub = df[df["Player"] == player][col].dropna()
-                v = sub.mean() if len(sub) else 0.0
-                scores.append((label, v, inv))
-            return scores
-
-        all_vals = {p: get_radar_vals(p) for p in active_players}
-        # Min/max across all players for normalization
-        norm_ranges = {}
-        for i, label in enumerate(list(radar_metrics.keys())):
-            all_v = [all_vals[p][i][1] for p in active_players]
-            norm_ranges[i] = (min(all_v), max(all_v))
-
-        def normalize(v, mn, mx, inv):
-            rng = mx - mn
-            if rng == 0: return 50.0
-            n = (v - mn) / rng * 100
-            return 100 - n if inv else n
-
-        fig_radar = go.Figure()
-        cats = list(radar_metrics.keys())
-        for player in active_players:
-            scores = []
-            for i, (label, v, inv) in enumerate(all_vals[player]):
-                mn, mx = norm_ranges[i]
-                scores.append(normalize(v, mn, mx, inv))
-            scores.append(scores[0])   # close the polygon
-            fig_radar.add_trace(go.Scatterpolar(
-                r=scores, theta=cats + [cats[0]],
-                fill="toself", name=player,
-                line=dict(color=C[player], width=2),
-                fillcolor=hex_to_rgba(C[player], 0.15),
-                opacity=0.85,
-            ))
-        fig_radar.update_layout(
-            polar=dict(
-                bgcolor=CARD_BG,
-                radialaxis=dict(visible=True, range=[0,100], gridcolor=LINE_CLR,
-                                tickfont=dict(color=SUBTEXT, size=9)),
-                angularaxis=dict(gridcolor=LINE_CLR, tickfont=dict(color=TEXT, size=10)),
-            ),
-            paper_bgcolor=CARD_BG, plot_bgcolor=CARD_BG,
-            font=dict(color=TEXT, family="Segoe UI, sans-serif"),
-            legend=dict(bgcolor=CARD_BG, bordercolor=LINE_CLR, font=dict(size=11)),
-            margin=dict(l=40, r=40, t=30, b=30), height=380,
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
-
-    with r2:
-        st.markdown('<div class="section-header">OPS by Season</div>', unsafe_allow_html=True)
-        ops_data = st_totals.sort_values("Season")
-        fig_ops = go.Figure()
-        for player in active_players:
-            sub = ops_data[ops_data["Player"] == player]
-            fig_ops.add_trace(go.Bar(
-                x=sub["Season"].astype(str), y=sub["OPS"],
-                name=player, marker_color=C[player], text=sub["OPS"].round(3),
-                textposition="outside", textfont=dict(size=11, color=TEXT),
-            ))
-        fig_ops.add_hline(y=0.720, line_dash="dash", line_color=GOLD,
-                          annotation_text="MLB Avg (.720)", annotation_font_color=GOLD,
-                          annotation_position="top right")
-        apply_layout(fig_ops, barmode="group", height=380,
-                     yaxis=dict(range=[0, 1.05], gridcolor=LINE_CLR),
-                     yaxis_title="OPS")
-        st.plotly_chart(fig_ops, use_container_width=True)
+    tools = ["Hit", "Power", "Speed", "Field", "Arm"]
+    fig_grades = go.Figure()
+    for player in active_players:
+        if player not in SCOUTING: continue
+        grades = [SCOUTING[player].get(t, 50) for t in tools]
+        labels = [f"{g} — {grade_label(g)}" for g in grades]
+        fig_grades.add_trace(go.Bar(
+            y=tools, x=grades, name=player, orientation="h",
+            marker_color=C[player],
+            text=labels, textposition="outside",
+            textfont=dict(color=TEXT, size=11),
+            hovertemplate="<b>%{y}</b><br>" + player + ": %{x}/80<extra></extra>",
+        ))
+    # Background grade zones
+    fig_grades.add_vrect(x0=20, x1=40, fillcolor="rgba(231,76,60,0.08)",  line_width=0, layer="below")
+    fig_grades.add_vrect(x0=40, x1=50, fillcolor="rgba(230,126,34,0.08)", line_width=0, layer="below")
+    fig_grades.add_vrect(x0=50, x1=60, fillcolor="rgba(196,169,98,0.08)", line_width=0, layer="below")
+    fig_grades.add_vrect(x0=60, x1=80, fillcolor="rgba(46,204,113,0.08)", line_width=0, layer="below")
+    fig_grades.add_vline(x=50, line_color=GOLD, line_dash="dash", line_width=1.5)
+    fig_grades.add_annotation(x=50, y=len(tools) - 0.5, text="Average (50)",
+                              showarrow=False, font=dict(color=GOLD, size=11), xanchor="left", xshift=4)
+    apply_layout(fig_grades, barmode="group", height=340,
+                 title="Tool Grades on 20-80 Scale — Source: FanGraphs Scouting Reports",
+                 xaxis=dict(range=[20, 100], gridcolor=LINE_CLR,
+                            tickvals=[20,30,40,50,60,70,80],
+                            title="Grade (20=Poor · 50=Average · 80=Elite)"),
+                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    st.plotly_chart(fig_grades, use_container_width=True)
+    st.markdown("""
+    <div style="padding:10px 14px;background:#1A1D2E;border-radius:8px;border-left:3px solid #C4A962;
+                font-size:0.8rem;color:#9BA3B8;margin-top:-8px;">
+    <b style="color:#C4A962;">20-80 Scale:</b>
+    &nbsp;20 = Poor &nbsp;·&nbsp; 30 = Well Below Avg &nbsp;·&nbsp; 40 = Below Avg &nbsp;·&nbsp;
+    45 = Fringe &nbsp;·&nbsp; 50 = Average &nbsp;·&nbsp; 55 = Above Avg &nbsp;·&nbsp;
+    60 = Plus &nbsp;·&nbsp; 65 = Plus-Plus &nbsp;·&nbsp; 70 = Well Above Avg &nbsp;·&nbsp; 80 = Elite
+    </div>
+    """, unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 2 — HITTING
@@ -568,8 +550,8 @@ with t3:
 
     c5, c6 = st.columns(2)
     for col_w, metric, title, ref, ref_lab in [
-        (c5, "EV_avg",   "Avg Exit Velo by Month", 88.5, "MLB Avg"),
-        (c6, "Barrel_pct","Barrel % by Month",       7.5, "MLB Avg"),
+        (c5, "EV_avg",      "Avg Exit Velo by Month (mph)", 88.5, "MLB Avg 88.5"),
+        (c6, "HardHit_pct", "Hard Hit % by Month",          37.5, "MLB Avg 37.5%"),
     ]:
         fig = go.Figure()
         for player in active_players:
