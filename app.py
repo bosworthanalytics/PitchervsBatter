@@ -27,7 +27,7 @@ st.set_page_config(
     page_title="MLB Player Comparison | Analytics",
     page_icon="baseball",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -355,53 +355,55 @@ def build_arsenal(sc):
     agg["Pitch"]  = agg["pitch_type"].map(PITCH_NAMES).fillna(agg["pitch_type"])
     return agg.sort_values("Usage%", ascending=False)
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## MLB Comparison")
+# ── Controls (top of page, no sidebar needed) ──────────────────────────────────
+st.markdown('<div class="section-header">Select Players</div>', unsafe_allow_html=True)
+ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
+with ctrl1:
     mode = st.radio("Compare", ["Hitters","Pitchers"], horizontal=True)
+with ctrl2:
     sel_seasons = st.multiselect("Seasons", ALL_SEASONS, default=[2024,2025,2026])
     if not sel_seasons:
         sel_seasons = [2025]
-    seasons_key = tuple(sorted(sel_seasons))
-    st.markdown("---")
+seasons_key = tuple(sorted(sel_seasons))
 
-    loader_label = "Loading hitter list..." if mode=="Hitters" else "Loading pitcher list..."
-    all_fg = pd.DataFrame()
-    load_error = None
-    with st.spinner(loader_label):
-        try:
-            all_fg = load_mlb_hitting(seasons_key) if mode=="Hitters" else load_mlb_pitching(seasons_key)
-        except Exception as e:
-            load_error = str(e)
+all_fg = pd.DataFrame()
+load_error = None
+with st.spinner("Loading player list..."):
+    try:
+        all_fg = load_mlb_hitting(seasons_key) if mode=="Hitters" else load_mlb_pitching(seasons_key)
+    except Exception as e:
+        load_error = str(e)
 
-    if all_fg.empty or load_error:
-        st.error("Could not load player list.")
-        st.code(load_error or "No data returned.", language=None)
-        st.stop()
+if all_fg.empty or load_error:
+    st.error("Could not load player list.")
+    st.code(load_error or "No data returned.", language=None)
+    st.stop()
 
-    sort_col = "OPS" if (mode=="Hitters" and "OPS" in all_fg.columns) else \
-               "ERA" if (mode=="Pitchers" and "ERA" in all_fg.columns) else "Name"
-    sort_asc  = mode == "Pitchers"
-    player_list = (all_fg.sort_values("Season", ascending=False)
-                         .drop_duplicates("Name")
-                         .sort_values(sort_col, ascending=sort_asc)["Name"]
-                         .tolist())
+sort_col = "OPS" if (mode=="Hitters" and "OPS" in all_fg.columns) else \
+           "ERA" if (mode=="Pitchers" and "ERA" in all_fg.columns) else "Name"
+sort_asc  = mode == "Pitchers"
+player_list = (all_fg.sort_values("Season", ascending=False)
+                     .drop_duplicates("Name")
+                     .sort_values(sort_col, ascending=sort_asc)["Name"]
+                     .tolist())
 
-    if len(player_list) < 2:
-        st.error("Not enough players. Try different seasons.")
-        st.stop()
+if len(player_list) < 2:
+    st.error("Not enough players. Try different seasons.")
+    st.stop()
 
-    def_a = next((p for p in player_list if "Lee" in p and "Jung" in p), player_list[0])
-    def_b = next((p for p in player_list if "Rafaela" in p), player_list[1])
+def_a = next((p for p in player_list if "Lee" in p and "Jung" in p), player_list[0])
+def_b = next((p for p in player_list if "Rafaela" in p), player_list[1])
 
+pcol1, pcol2 = st.columns(2)
+with pcol1:
     player_a = st.selectbox("Player A", player_list,
                             index=player_list.index(def_a) if def_a in player_list else 0)
+with pcol2:
     pb_opts = [p for p in player_list if p != player_a]
     def_b_i = pb_opts.index(def_b) if def_b in pb_opts else 0
     player_b = st.selectbox("Player B", pb_opts, index=def_b_i)
 
-    st.markdown("---")
-    st.caption("FanGraphs · Baseball Savant · MLB Stats API · pybaseball 2.2.7")
+st.markdown("---")
 
 PLAYERS = [player_a, player_b]
 COLORS  = {player_a: PA_COL, player_b: PB_COL}
