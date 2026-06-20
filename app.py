@@ -167,7 +167,7 @@ def load_mlb_hitting(seasons_tuple):
     for season in seasons_tuple:
         url = (f"https://statsapi.mlb.com/api/v1/stats"
                f"?stats=season&group=hitting&gameType=R&season={season}"
-               f"&sportId=1&limit=2000&offset=0")
+               f"&sportId=1&limit=5000&playerPool=All")
         try:
             splits = requests.get(url, headers=MLB_HEADERS, timeout=20).json()\
                              .get("stats",[{}])[0].get("splits",[])
@@ -209,7 +209,7 @@ def load_mlb_pitching(seasons_tuple):
     for season in seasons_tuple:
         url = (f"https://statsapi.mlb.com/api/v1/stats"
                f"?stats=season&group=pitching&gameType=R&season={season}"
-               f"&sportId=1&limit=2000&offset=0")
+               f"&sportId=1&limit=5000&playerPool=All")
         try:
             splits = requests.get(url, headers=MLB_HEADERS, timeout=20).json()\
                              .get("stats",[{}])[0].get("splits",[])
