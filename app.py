@@ -108,7 +108,7 @@ st.markdown("""<style>
 .info-box{padding:10px 14px;background:#1A1D2E;border-radius:8px;
           border-left:3px solid #C4A962;font-size:.8rem;color:#9BA3B8;margin-top:6px}
 #MainMenu,footer,header{visibility:hidden}
-[data-testid="collapsedControl"]{color:#C4A962 !important;background-color:#1A1D2E !important;border-radius:0 6px 6px 0;opacity:1 !important;visibility:visible !important;transition:none !important}
+[data-testid="collapsedControl"]{color:#C4A962 !important;background-color:#1A1D2E !important;border:2px solid #C4A962 !important;border-radius:0 8px 8px 0 !important;opacity:1 !important;visibility:visible !important;transition:none !important;width:28px !important;top:50% !important;position:fixed !important}
 </style>""", unsafe_allow_html=True)
 
 # ── Cached data loaders ────────────────────────────────────────────────────────
