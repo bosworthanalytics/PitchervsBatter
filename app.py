@@ -6,9 +6,10 @@ import warnings, os, requests
 warnings.filterwarnings("ignore")
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
+import json, math
 
 PB_IMPORT_ERROR = None
 try:
@@ -82,18 +83,59 @@ def grade_label(g):
     if g>=40: return "Below Avg"
     return "Well Below Avg"
 
-LAYOUT = dict(
-    paper_bgcolor=CARD_BG, plot_bgcolor=CARD_BG,
-    font=dict(color=TEXT, family="Segoe UI, sans-serif"),
-    legend=dict(bgcolor=CARD_BG, bordercolor=LINE_CLR, borderwidth=1, font=dict(size=12)),
-    margin=dict(l=16, r=16, t=50, b=16),
-    xaxis=dict(gridcolor=LINE_CLR, zerolinecolor=LINE_CLR),
-    yaxis=dict(gridcolor=LINE_CLR, zerolinecolor=LINE_CLR),
-    dragmode=False,
-)
-PLOT_CFG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
-def apply_layout(fig, **kw):
-    fig.update_layout(**{**LAYOUT, **kw}); return fig
+# ── ECharts CDN renderer ───────────────────────────────────────────────────────
+_ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"
+_ek = [0]
+
+def _nan_safe(obj):
+    if isinstance(obj, float) and math.isnan(obj): return None
+    raise TypeError(type(obj))
+
+def ech(opts, height=360):
+    _ek[0] += 1
+    opts.setdefault("backgroundColor", CARD_BG)
+    payload = json.dumps(opts, default=_nan_safe, ensure_ascii=False)
+    html = f"""<!DOCTYPE html><html><head>
+<script src="{_ECHARTS_CDN}"></script>
+<style>html,body{{margin:0;padding:0;background:{CARD_BG}}}</style>
+</head><body>
+<div id="c{_ek[0]}" style="width:100%;height:{height}px"></div>
+<script>
+var c=echarts.init(document.getElementById('c{_ek[0]}'));
+c.setOption({payload});
+new ResizeObserver(function(){{c.resize()}}).observe(document.getElementById('c{_ek[0]}'));
+</script></body></html>"""
+    components.html(html, height=height + 8)
+
+def hex_rgba(h, a=1.0):
+    h = h.lstrip('#')
+    r,g,b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+    return f"rgba({r},{g},{b},{a})"
+
+def _grad(color):
+    return {"type":"linear","x":0,"y":0,"x2":0,"y2":1,
+            "colorStops":[{"offset":0,"color":color},
+                          {"offset":1,"color":hex_rgba(color,0.25)}]}
+
+def _hgrad(color):
+    return {"type":"linear","x":0,"y":0,"x2":1,"y2":0,
+            "colorStops":[{"offset":0,"color":color},
+                          {"offset":1,"color":hex_rgba(color,0.35)}]}
+
+def _tt():
+    return {"trigger":"axis","axisPointer":{"type":"shadow"},
+            "backgroundColor":CARD_BG,"borderColor":LINE_CLR,
+            "textStyle":{"color":TEXT,"fontSize":11}}
+
+def _base(title):
+    return {
+        "backgroundColor": CARD_BG,
+        "title": {"text":title,"textStyle":{"color":TEXT,"fontSize":13,"fontWeight":"bold"},
+                  "top":4,"left":"center"},
+        "tooltip": _tt(),
+        "legend": {"bottom":4,"textStyle":{"color":TEXT,"fontSize":11},
+                   "data":[]},
+    }
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""<style>
@@ -461,73 +503,144 @@ else:
 # SHARED: performance index bar (used in both Overview tabs)
 # ════════════════════════════════════════════════════════════════════════════════
 def perf_index_bar(metrics, avgs, title):
-    """metrics = [(label, col, display_fmt, lower_is_better), ...]"""
-    fig = go.Figure()
-    for player in PLAYERS:
-        idx_vals, txt_vals = [], []
+    cats = [m[0] for m in metrics]
+    series = []
+    for i, player in enumerate(PLAYERS):
+        items = []
         for label, col, fmt, lower in metrics:
             s = p_seasons(player)
-            v = s[col].iloc[-1] if not s.empty and col in s.columns and pd.notna(s[col].iloc[-1]) else None
+            v = None
+            if not s.empty and col in s.columns:
+                raw = s[col].iloc[-1]
+                if pd.notna(raw): v = float(raw)
             if v is not None and col in avgs and avgs[col]:
-                idx = (avgs[col]/v*100) if lower else (v/avgs[col]*100)
-                idx_vals.append(round(idx,1))
-                txt_vals.append(fmt.format(float(v)))
+                idx = round((avgs[col]/v*100) if lower else (v/avgs[col]*100), 1)
+                actual = fmt.format(v)
             else:
-                idx_vals.append(None); txt_vals.append("N/A")
-        fig.add_trace(go.Bar(
-            y=[m[0] for m in metrics], x=idx_vals, name=player,
-            orientation="h", marker_color=COLORS[player],
-            text=txt_vals, textposition="outside",
-            textfont=dict(color=TEXT, size=10),
-            hovertemplate="<b>%{y}</b><br>"+player+": %{text}<br>Index: %{x:.0f}<extra></extra>",
-        ))
-    fig.add_vline(x=100, line_color=GOLD, line_dash="dash", line_width=2)
-    fig.add_annotation(x=100, y=len(metrics)-0.5, text="MLB Avg",
-                       showarrow=False, font=dict(color=GOLD,size=10),
-                       xanchor="left", xshift=4)
-    apply_layout(fig, barmode="group", height=max(320, len(metrics)*52),
-                 title=title,
-                 xaxis=dict(range=[40,175], gridcolor=LINE_CLR, title="Index (100 = MLB Avg)"),
-                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    return fig
+                idx = None; actual = "N/A"
+            items.append({"value": idx,
+                "label": {"show": True, "position": "right",
+                          "formatter": actual, "color": TEXT, "fontSize": 10}})
+        ser = {
+            "name": player, "type": "bar",
+            "data": items,
+            "itemStyle": {"color": COLORS[player], "borderRadius": [0, 4, 4, 0]},
+        }
+        if i == 0:
+            ser["markLine"] = {
+                "silent": True, "symbol": "none",
+                "lineStyle": {"color": GOLD, "type": "dashed", "width": 2},
+                "data": [{"xAxis": 100}],
+                "label": {"show": True, "formatter": "MLB Avg", "color": GOLD, "position": "end"}
+            }
+        series.append(ser)
+    opts = {
+        **_base(title),
+        "legend": {"bottom": 4, "textStyle": {"color": TEXT}, "data": PLAYERS},
+        "grid": {"left": "3%", "right": "16%", "top": "10%", "bottom": "10%", "containLabel": True},
+        "xAxis": {"type": "value", "min": 40, "max": 175,
+                  "splitLine": {"lineStyle": {"color": LINE_CLR}},
+                  "axisLabel": {"color": SUBTEXT},
+                  "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+        "yAxis": {"type": "category", "data": cats,
+                  "axisLabel": {"color": TEXT, "fontSize": 11},
+                  "axisLine": {"lineStyle": {"color": LINE_CLR}},
+                  "splitLine": {"show": False}},
+        "series": series,
+    }
+    ech(opts, height=max(300, len(metrics) * 58))
 
 def season_bar(col, title, ref_val, ref_label, y_title, fmt="{:.3f}", height=340):
-    fig = go.Figure()
+    season_set = sorted({
+        str(int(r["Season"]))
+        for p in PLAYERS
+        for _, r in p_seasons(p).dropna(subset=[col]).iterrows()
+    })
+    series = []
     for player in PLAYERS:
         s = p_seasons(player).dropna(subset=[col])
-        if s.empty: continue
-        fig.add_trace(go.Bar(
-            x=s["Season"].astype(str), y=s[col], name=player,
-            marker_color=COLORS[player],
-            text=s[col].apply(lambda v: fmt.format(float(v))),
-            textposition="outside", textfont=dict(color=TEXT,size=11),
-        ))
-    if ref_val:
-        fig.add_hline(y=ref_val, line_dash="dash", line_color=GOLD,
-                      annotation_text=ref_label, annotation_font_color=GOLD,
-                      annotation_position="top right")
-    apply_layout(fig, barmode="group", height=height, title=title,
-                 yaxis_title=y_title,
-                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    return fig
+        sm = {str(int(r["Season"])): float(r[col]) for _, r in s.iterrows()}
+        data = [sm.get(ss) for ss in season_set]
+        color = COLORS[player]
+        ser = {
+            "name": player, "type": "bar", "barMaxWidth": 70,
+            "itemStyle": {"color": _grad(color), "borderRadius": [4, 4, 0, 0]},
+            "data": [{"value": v,
+                      "label": {"show": v is not None, "position": "top",
+                                "formatter": fmt.format(v) if v is not None else "",
+                                "color": TEXT, "fontSize": 10}}
+                     for v in data],
+        }
+        if not series and ref_val is not None:
+            ser["markLine"] = {
+                "silent": True, "symbol": "none",
+                "lineStyle": {"color": GOLD, "type": "dashed", "width": 1.5},
+                "data": [{"yAxis": ref_val}],
+                "label": {"show": True, "formatter": ref_label, "color": GOLD, "position": "end"}
+            }
+        series.append(ser)
+    opts = {
+        **_base(title),
+        "legend": {"bottom": 4, "textStyle": {"color": TEXT}, "data": PLAYERS},
+        "grid": {"left": "5%", "right": "5%", "top": "15%", "bottom": "15%", "containLabel": True},
+        "xAxis": {"type": "category", "data": season_set,
+                  "axisLabel": {"color": TEXT},
+                  "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+        "yAxis": {"type": "value", "name": y_title,
+                  "nameTextStyle": {"color": SUBTEXT},
+                  "splitLine": {"lineStyle": {"color": LINE_CLR}},
+                  "axisLabel": {"color": SUBTEXT},
+                  "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+        "series": series,
+    }
+    ech(opts, height=height)
 
-def monthly_line(monthly_dict, col, title, ref_val, ref_label, y_title, sel_season):
-    fig = go.Figure()
+def monthly_line(monthly_dict, col, title, ref_val, ref_label, y_title, sel_season, height=340):
+    all_months = []
+    for p in PLAYERS:
+        df = monthly_dict.get(p, pd.DataFrame())
+        if df.empty or col not in df.columns: continue
+        for m in df.sort_values("Month_Num")["Month"].tolist():
+            if m not in all_months: all_months.append(m)
+    series = []
     for player in PLAYERS:
         df = monthly_dict.get(player, pd.DataFrame())
         if df.empty or col not in df.columns: continue
         s = df.dropna(subset=[col]).sort_values("Month_Num")
-        fig.add_trace(go.Scatter(
-            x=s["Month"], y=s[col], mode="lines+markers", name=player,
-            line=dict(color=COLORS[player], width=2.5), marker=dict(size=7),
-            hovertemplate="%{x}: %{y}<extra>"+player+"</extra>",
-        ))
-    if ref_val:
-        fig.add_hline(y=ref_val, line_dash="dot", line_color=GOLD,
-                      annotation_text=ref_label, annotation_font_color=GOLD)
-    apply_layout(fig, title=title, yaxis_title=y_title,
-                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    return fig
+        mm = {row["Month"]: row[col] for _, row in s.iterrows()}
+        data = [mm.get(m) for m in all_months]
+        color = COLORS[player]
+        ser = {
+            "name": player, "type": "line", "smooth": True,
+            "data": data, "symbol": "circle", "symbolSize": 7,
+            "lineStyle": {"color": color, "width": 2.5},
+            "itemStyle": {"color": color},
+            "areaStyle": {"color": {"type": "linear", "x": 0, "y": 0, "x2": 0, "y2": 1,
+                "colorStops": [{"offset": 0, "color": hex_rgba(color, 0.35)},
+                               {"offset": 1, "color": hex_rgba(color, 0.0)}]}},
+        }
+        if not series and ref_val is not None:
+            ser["markLine"] = {
+                "silent": True, "symbol": "none",
+                "lineStyle": {"color": GOLD, "type": "dotted", "width": 1.5},
+                "data": [{"yAxis": ref_val}],
+                "label": {"show": True, "formatter": ref_label, "color": GOLD}
+            }
+        series.append(ser)
+    opts = {
+        **_base(title),
+        "legend": {"bottom": 4, "textStyle": {"color": TEXT}, "data": PLAYERS},
+        "grid": {"left": "5%", "right": "5%", "top": "15%", "bottom": "15%", "containLabel": True},
+        "xAxis": {"type": "category", "data": all_months, "boundaryGap": False,
+                  "axisLabel": {"color": TEXT},
+                  "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+        "yAxis": {"type": "value", "name": y_title,
+                  "nameTextStyle": {"color": SUBTEXT},
+                  "splitLine": {"lineStyle": {"color": LINE_CLR}},
+                  "axisLabel": {"color": SUBTEXT}},
+        "series": series,
+    }
+    ech(opts, height=height)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — OVERVIEW (both modes)
@@ -543,11 +656,10 @@ with t1:
             ("K % (lower=better)","K%","{:.1f}%",True),
         ]
         st.markdown('<div class="section-header">Latest Season Performance Index</div>', unsafe_allow_html=True)
-        st.plotly_chart(perf_index_bar(hit_metrics, HIT_AVG,
-                        "Latest Season Stats vs. MLB Average — 100 = League Average"),
-                        use_container_width=True, config=PLOT_CFG)
+        perf_index_bar(hit_metrics, HIT_AVG,
+                       "Latest Season Stats vs. MLB Average — 100 = League Average")
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-        st.plotly_chart(season_bar("OPS","OPS by Season",0.720,"MLB Avg (.720)","OPS"), use_container_width=True, config=PLOT_CFG)
+        season_bar("OPS","OPS by Season",0.720,"MLB Avg (.720)","OPS")
 
     else:  # Pitchers
         pit_metrics = [
@@ -560,11 +672,10 @@ with t1:
             ("BB/9 (lower=better)","BB/9", "{:.1f}",  True),
         ]
         st.markdown('<div class="section-header">Latest Season Performance Index</div>', unsafe_allow_html=True)
-        st.plotly_chart(perf_index_bar(pit_metrics, PIT_AVG,
-                        "Latest Season Pitching Index vs. MLB Average — 100 = League Average"),
-                        use_container_width=True, config=PLOT_CFG)
+        perf_index_bar(pit_metrics, PIT_AVG,
+                       "Latest Season Pitching Index vs. MLB Average — 100 = League Average")
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-        st.plotly_chart(season_bar("ERA","ERA by Season",4.20,"MLB Avg (4.20)","ERA","{:.2f}"), use_container_width=True, config=PLOT_CFG)
+        season_bar("ERA","ERA by Season",4.20,"MLB Avg (4.20)","ERA","{:.2f}")
 
     # Scouting grades (if available for selected players)
     has_grades = any(p in SCOUTING for p in PLAYERS)
@@ -572,28 +683,42 @@ with t1:
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-header">Scouting Tool Grades — 20-80 Scale (FanGraphs)</div>', unsafe_allow_html=True)
         tools = ["Hit","Power","Speed","Field","Arm"] if mode=="Hitters" else ["FB Velo","Command","Stamina","Deception","Arm Strength"]
-        fig_g = go.Figure()
-        for player in PLAYERS:
+        sc_series = []
+        for i, player in enumerate(PLAYERS):
             if player not in SCOUTING: continue
             grades = [SCOUTING[player].get(t,50) for t in tools]
-            fig_g.add_trace(go.Bar(
-                y=tools, x=grades, name=player, orientation="h",
-                marker_color=COLORS[player],
-                text=[f"{g} — {grade_label(g)}" for g in grades],
-                textposition="outside", textfont=dict(color=TEXT,size=10),
-                hovertemplate="<b>%{y}</b><br>"+player+": %{x}/80<extra></extra>",
-            ))
-        for x0,x1,c in [(20,40,"rgba(231,76,60,.08)"),(40,50,"rgba(230,126,34,.08)"),
-                        (50,60,"rgba(196,169,98,.08)"),(60,80,"rgba(46,204,113,.08)")]:
-            fig_g.add_vrect(x0=x0,x1=x1,fillcolor=c,line_width=0,layer="below")
-        fig_g.add_vline(x=50,line_color=GOLD,line_dash="dash",line_width=1.5)
-        apply_layout(fig_g, barmode="group", height=320,
-                     title="Tool Grades — Source: FanGraphs Scouting Reports",
-                     xaxis=dict(range=[20,98],gridcolor=LINE_CLR,
-                                tickvals=[20,30,40,50,60,70,80],
-                                title="Grade (20=Poor · 50=Avg · 80=Elite)"),
-                     legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1))
-        st.plotly_chart(fig_g, use_container_width=True, config=PLOT_CFG)
+            ser = {
+                "name": player, "type": "bar",
+                "data": [{"value": g, "label": {"show": True, "position": "right",
+                    "formatter": f"{g} — {grade_label(g)}", "color": TEXT, "fontSize": 10}}
+                    for g in grades],
+                "itemStyle": {"color": COLORS[player], "borderRadius": [0,4,4,0]},
+            }
+            if i == 0:
+                ser["markArea"] = {"silent": True, "data": [
+                    [{"xAxis":20,"itemStyle":{"color":"rgba(231,76,60,0.08)"}},{"xAxis":40}],
+                    [{"xAxis":40,"itemStyle":{"color":"rgba(230,126,34,0.08)"}},{"xAxis":50}],
+                    [{"xAxis":50,"itemStyle":{"color":"rgba(196,169,98,0.08)"}},{"xAxis":60}],
+                    [{"xAxis":60,"itemStyle":{"color":"rgba(46,204,113,0.08)"}},{"xAxis":95}],
+                ]}
+                ser["markLine"] = {"silent":True,"symbol":"none",
+                    "lineStyle":{"color":GOLD,"type":"dashed","width":1.5},
+                    "data":[{"xAxis":50}],"label":{"show":False}}
+            sc_series.append(ser)
+        ech({
+            **_base("Tool Grades — 20-80 Scale"),
+            "legend": {"bottom":4,"textStyle":{"color":TEXT},"data":[p for p in PLAYERS if p in SCOUTING]},
+            "grid": {"left":"3%","right":"22%","top":"10%","bottom":"10%","containLabel":True},
+            "xAxis": {"type":"value","min":20,"max":95,
+                      "axisLabel":{"color":SUBTEXT,"formatter":"{value}"},
+                      "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                      "axisLine":{"lineStyle":{"color":LINE_CLR}},
+                      "axisTick":{"show":True}},
+            "yAxis": {"type":"category","data":tools,
+                      "axisLabel":{"color":TEXT,"fontSize":11},
+                      "axisLine":{"lineStyle":{"color":LINE_CLR}}},
+            "series": sc_series,
+        }, height=320)
         st.markdown("""<div class="info-box">
         <b style="color:#C4A962">20-80 Scale:</b> &nbsp;
         20=Poor &nbsp;·&nbsp; 40=Below Avg &nbsp;·&nbsp; 50=Average &nbsp;·&nbsp;
@@ -624,18 +749,14 @@ if mode == "Hitters":
 
             c1,c2 = st.columns(2)
             with c1:
-                st.plotly_chart(monthly_line(monthly_hit,"AVG","AVG by Month",
-                    0.248,"MLB Avg (.248)","AVG",sel_s), use_container_width=True, config=PLOT_CFG)
+                monthly_line(monthly_hit,"AVG","AVG by Month",0.248,"MLB Avg (.248)","AVG",sel_s)
             with c2:
-                st.plotly_chart(monthly_line(monthly_hit,"OPS","OPS by Month",
-                    0.720,"MLB Avg (.720)","OPS",sel_s), use_container_width=True, config=PLOT_CFG)
+                monthly_line(monthly_hit,"OPS","OPS by Month",0.720,"MLB Avg (.720)","OPS",sel_s)
             c3,c4 = st.columns(2)
             with c3:
-                st.plotly_chart(monthly_line(monthly_hit,"HR","Home Runs by Month",
-                    None,None,"HR",sel_s), use_container_width=True, config=PLOT_CFG)
+                monthly_line(monthly_hit,"HR","Home Runs by Month",None,None,"HR",sel_s)
             with c4:
-                st.plotly_chart(monthly_line(monthly_hit,"OBP","OBP by Month",
-                    0.320,"MLB Avg (.320)","OBP",sel_s), use_container_width=True, config=PLOT_CFG)
+                monthly_line(monthly_hit,"OBP","OBP by Month",0.320,"MLB Avg (.320)","OBP",sel_s)
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-header">Season Totals</div>', unsafe_allow_html=True)
@@ -666,18 +787,14 @@ if mode == "Hitters":
         st.markdown('<div class="section-header">Exit Velocity & Expected Stats by Month</div>', unsafe_allow_html=True)
         c1,c2 = st.columns(2)
         with c1:
-            st.plotly_chart(monthly_line(sc_monthly,"EV_avg","Avg Exit Velocity by Month",
-                88.5,"MLB Avg 88.5","mph",sel_s3), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_monthly,"EV_avg","Avg Exit Velocity by Month",88.5,"MLB Avg 88.5","mph",sel_s3)
         with c2:
-            st.plotly_chart(monthly_line(sc_monthly,"xBA","xBA by Month",
-                0.248,"MLB Avg (.248)","xBA",sel_s3), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_monthly,"xBA","xBA by Month",0.248,"MLB Avg (.248)","xBA",sel_s3)
         c3,c4 = st.columns(2)
         with c3:
-            st.plotly_chart(monthly_line(sc_monthly,"HardHit_pct","Hard Hit % by Month",
-                37.5,"MLB Avg 37.5%","Hard Hit %",sel_s3), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_monthly,"HardHit_pct","Hard Hit % by Month",37.5,"MLB Avg 37.5%","Hard Hit %",sel_s3)
         with c4:
-            st.plotly_chart(monthly_line(sc_monthly,"xwOBA","xwOBA by Month",
-                0.317,"MLB Avg (.317)","xwOBA",sel_s3), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_monthly,"xwOBA","xwOBA by Month",0.317,"MLB Avg (.317)","xwOBA",sel_s3)
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-header">Exit Velocity & Hard Hit % — Career by Season</div>', unsafe_allow_html=True)
@@ -699,34 +816,35 @@ if mode == "Hitters":
                     })
             if frames:
                 sc_career = pd.DataFrame(frames)
-                fig_ev = go.Figure()
-                for p in PLAYERS:
-                    sub = sc_career[sc_career["Player"]==p].dropna(subset=["EV_avg"])
-                    fig_ev.add_trace(go.Bar(x=sub["Season"].astype(str), y=sub["EV_avg"],
-                        name=p, marker_color=COLORS[p],
-                        text=sub["EV_avg"].round(1), textposition="outside",
-                        textfont=dict(color=TEXT,size=11)))
-                fig_ev.add_hline(y=88.5,line_dash="dash",line_color=GOLD,
-                                 annotation_text="MLB Avg",annotation_font_color=GOLD,
-                                 annotation_position="top right")
-                apply_layout(fig_ev, barmode="group", title="Avg Exit Velocity by Season",
-                             yaxis_title="mph",
-                             legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1))
-                c5.plotly_chart(fig_ev, use_container_width=True, config=PLOT_CFG)
-                fig_hh = go.Figure()
-                for p in PLAYERS:
-                    sub = sc_career[sc_career["Player"]==p].dropna(subset=["HardHit_pct"])
-                    fig_hh.add_trace(go.Bar(x=sub["Season"].astype(str), y=sub["HardHit_pct"],
-                        name=p, marker_color=COLORS[p],
-                        text=sub["HardHit_pct"].round(1), textposition="outside",
-                        textfont=dict(color=TEXT,size=11)))
-                fig_hh.add_hline(y=37.5,line_dash="dash",line_color=GOLD,
-                                 annotation_text="MLB Avg",annotation_font_color=GOLD,
-                                 annotation_position="top right")
-                apply_layout(fig_hh, barmode="group", title="Hard Hit % by Season",
-                             yaxis_title="%",
-                             legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1))
-                c6.plotly_chart(fig_hh, use_container_width=True, config=PLOT_CFG)
+                slbls = sorted({str(r["Season"]) for _,r in sc_career.iterrows()})
+                def _career_bar(metric, title, ref, ref_lbl, yname):
+                    series = []
+                    for p in PLAYERS:
+                        sub = sc_career[sc_career["Player"]==p].dropna(subset=[metric])
+                        sm = {str(int(r["Season"])): round(r[metric],1) for _,r in sub.iterrows()}
+                        data = [sm.get(s) for s in slbls]
+                        color = COLORS[p]
+                        ser = {"name":p,"type":"bar","barMaxWidth":70,
+                               "itemStyle":{"color":_grad(color),"borderRadius":[4,4,0,0]},
+                               "data":[{"value":v,"label":{"show":v is not None,"position":"top",
+                                   "formatter":str(v) if v else "","color":TEXT,"fontSize":10}}
+                                   for v in data]}
+                        if not series:
+                            ser["markLine"] = {"silent":True,"symbol":"none",
+                                "lineStyle":{"color":GOLD,"type":"dashed","width":1.5},
+                                "data":[{"yAxis":ref}],
+                                "label":{"show":True,"formatter":ref_lbl,"color":GOLD,"position":"end"}}
+                        series.append(ser)
+                    return {**_base(title),
+                        "legend":{"bottom":4,"textStyle":{"color":TEXT},"data":PLAYERS},
+                        "grid":{"left":"5%","right":"5%","top":"15%","bottom":"15%","containLabel":True},
+                        "xAxis":{"type":"category","data":slbls,"axisLabel":{"color":TEXT},"axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                        "yAxis":{"type":"value","name":yname,"nameTextStyle":{"color":SUBTEXT},"splitLine":{"lineStyle":{"color":LINE_CLR}},"axisLabel":{"color":SUBTEXT}},
+                        "series":series}
+                with c5:
+                    ech(_career_bar("EV_avg","Avg Exit Velocity by Season",88.5,"MLB Avg","mph"))
+                with c6:
+                    ech(_career_bar("HardHit_pct","Hard Hit % by Season",37.5,"MLB Avg","%"))
 
     # ── TAB 4: PLATE DISCIPLINE ────────────────────────────────────────────────
     with t4:
@@ -757,19 +875,14 @@ if mode == "Hitters":
 
         c1,c2 = st.columns(2)
         with c1:
-            st.plotly_chart(monthly_line(sc_disc,"Chase_pct","Chase Rate by Month (lower=better)",
-                30.0,"MLB Avg 30%","Chase %",sel_s4), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_disc,"Chase_pct","Chase Rate by Month (lower=better)",30.0,"MLB Avg 30%","Chase %",sel_s4)
         with c2:
-            st.plotly_chart(monthly_line(sc_disc,"SwStr_pct","Swinging Strike % by Month (lower=better)",
-                10.8,"MLB Avg 10.8%","SwStr %",sel_s4), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_disc,"SwStr_pct","Swinging Strike % by Month (lower=better)",10.8,"MLB Avg 10.8%","SwStr %",sel_s4)
         c3,c4 = st.columns(2)
         with c3:
-            st.plotly_chart(monthly_line(sc_disc,"ZContact_pct","Zone Contact % by Month (higher=better)",
-                84.0,"MLB Avg 84%","Z-Contact %",sel_s4), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_disc,"ZContact_pct","Zone Contact % by Month (higher=better)",84.0,"MLB Avg 84%","Z-Contact %",sel_s4)
         with c4:
-            # BB% and K% from FanGraphs season data — show by season bar
-            st.plotly_chart(season_bar("BB%","Walk Rate by Season (%)",
-                8.5,"MLB Avg 8.5%","BB %","{:.1f}"), use_container_width=True, config=PLOT_CFG)
+            season_bar("BB%","Walk Rate by Season (%)",8.5,"MLB Avg 8.5%","BB %","{:.1f}")
 
     # ── TAB 5: DEFENSE ─────────────────────────────────────────────────────────
     with t5:
@@ -807,18 +920,14 @@ else:
 
         c1,c2 = st.columns(2)
         with c1:
-            st.plotly_chart(monthly_line(monthly_pit,"ERA","ERA by Month",
-                4.20,"MLB Avg (4.20)","ERA",sel_s2), use_container_width=True, config=PLOT_CFG)
+            monthly_line(monthly_pit,"ERA","ERA by Month",4.20,"MLB Avg (4.20)","ERA",sel_s2)
         with c2:
-            st.plotly_chart(monthly_line(monthly_pit,"WHIP","WHIP by Month",
-                1.28,"MLB Avg (1.28)","WHIP",sel_s2), use_container_width=True, config=PLOT_CFG)
+            monthly_line(monthly_pit,"WHIP","WHIP by Month",1.28,"MLB Avg (1.28)","WHIP",sel_s2)
         c3,c4 = st.columns(2)
         with c3:
-            st.plotly_chart(monthly_line(monthly_pit,"K/9","K/9 by Month",
-                9.0,"MLB Avg (9.0)","K/9",sel_s2), use_container_width=True, config=PLOT_CFG)
+            monthly_line(monthly_pit,"K/9","K/9 by Month",9.0,"MLB Avg (9.0)","K/9",sel_s2)
         with c4:
-            st.plotly_chart(monthly_line(monthly_pit,"BB/9","BB/9 by Month (lower=better)",
-                3.1,"MLB Avg (3.1)","BB/9",sel_s2), use_container_width=True, config=PLOT_CFG)
+            monthly_line(monthly_pit,"BB/9","BB/9 by Month (lower=better)",3.1,"MLB Avg (3.1)","BB/9",sel_s2)
 
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-header">Career Season Totals</div>', unsafe_allow_html=True)
@@ -854,32 +963,37 @@ else:
             ca1, ca2 = st.columns([1,1])
 
             with ca1:
-                # Usage pie
-                fig_pie = go.Figure(go.Pie(
-                    labels=ars["Pitch"], values=ars["Usage%"],
-                    marker_colors=[color,"#4A5568","#718096","#A0AEC0","#CBD5E0","#E2E8F0"][:len(ars)],
-                    textinfo="label+percent", hole=0.35,
-                ))
-                fig_pie.update_layout(
-                    paper_bgcolor=CARD_BG, font=dict(color=TEXT,family="Segoe UI"),
-                    margin=dict(l=10,r=10,t=40,b=10), height=300,
-                    title=dict(text="Pitch Usage %",font=dict(color=TEXT)),
-                    showlegend=False,
-                )
-                ca1.plotly_chart(fig_pie, use_container_width=True, config=PLOT_CFG)
+                palette = [color,"#4A5568","#718096","#A0AEC0","#CBD5E0","#E2E8F0"][:len(ars)]
+                ech({
+                    "backgroundColor": CARD_BG,
+                    "title": {"text":"Pitch Usage %","textStyle":{"color":TEXT,"fontSize":13},"left":"center","top":4},
+                    "tooltip": {"trigger":"item","backgroundColor":CARD_BG,"borderColor":LINE_CLR,"textStyle":{"color":TEXT}},
+                    "series": [{"type":"pie","radius":["35%","65%"],"center":["50%","55%"],
+                        "data":[{"value":row["Usage%"],"name":row["Pitch"]} for _,row in ars.iterrows()],
+                        "label":{"color":TEXT,"fontSize":11},
+                        "itemStyle":{"borderRadius":4,"borderColor":CARD_BG,"borderWidth":2},
+                        "emphasis":{"itemStyle":{"shadowBlur":10,"shadowColor":"rgba(0,0,0,0.5)"}}}],
+                    "color": palette,
+                }, height=300)
 
             with ca2:
-                # Velocity bar
-                fig_velo = go.Figure(go.Bar(
-                    y=ars["Pitch"], x=ars["Velo"], orientation="h",
-                    marker_color=color,
-                    text=ars["Velo"].apply(lambda v: f"{v:.1f} mph"),
-                    textposition="outside", textfont=dict(color=TEXT,size=11),
-                ))
-                apply_layout(fig_velo, title="Avg Velocity by Pitch Type",
-                             xaxis=dict(range=[60,105],gridcolor=LINE_CLR,title="mph"),
-                             height=300)
-                ca2.plotly_chart(fig_velo, use_container_width=True, config=PLOT_CFG)
+                pitches = ars["Pitch"].tolist()
+                velos = ars["Velo"].tolist()
+                ech({
+                    "backgroundColor": CARD_BG,
+                    "title": {"text":"Avg Velocity by Pitch","textStyle":{"color":TEXT,"fontSize":13},"left":"center","top":4},
+                    "tooltip": {"trigger":"axis","backgroundColor":CARD_BG,"borderColor":LINE_CLR,"textStyle":{"color":TEXT}},
+                    "grid": {"left":"3%","right":"18%","top":"15%","bottom":"10%","containLabel":True},
+                    "xAxis": {"type":"value","min":60,"max":105,
+                              "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                              "axisLabel":{"color":SUBTEXT},"axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                    "yAxis": {"type":"category","data":pitches,
+                              "axisLabel":{"color":TEXT},"axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                    "series": [{"type":"bar",
+                        "itemStyle":{"color":_hgrad(color),"borderRadius":[0,4,4,0]},
+                        "data":[{"value":v,"label":{"show":True,"position":"right",
+                            "formatter":f"{v:.1f} mph","color":TEXT,"fontSize":10}} for v in velos]}],
+                }, height=300)
 
             # Arsenal table
             disp_ars = ars[["Pitch","Usage%","Velo","Spin","xwOBA"]].rename(
@@ -909,9 +1023,9 @@ else:
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         c1,c2 = st.columns(2)
         with c1:
-            st.plotly_chart(season_bar("HR/9","HR/9 by Season",1.2,"MLB Avg (1.2)","HR/9","{:.1f}"), use_container_width=True, config=PLOT_CFG)
+            season_bar("HR/9","HR/9 by Season",1.2,"MLB Avg (1.2)","HR/9","{:.1f}")
         with c2:
-            st.plotly_chart(season_bar("K-BB%","K-BB% by Season (higher=better)",14.5,"MLB Avg 14.5%","K-BB %","{:.1f}"), use_container_width=True, config=PLOT_CFG, key="kbb_bb_tab")
+            season_bar("K-BB%","K-BB% by Season (higher=better)",14.5,"MLB Avg 14.5%","K-BB %","{:.1f}")
 
         sel_s4p = st.selectbox("Season for Statcast Batted Ball", sorted(sel_seasons, reverse=True), key="bb_s")
         st.markdown('<div class="section-header">Monthly Batted Ball from Statcast</div>', unsafe_allow_html=True)
@@ -927,11 +1041,9 @@ else:
 
         c3,c4 = st.columns(2)
         with c3:
-            st.plotly_chart(monthly_line(sc_bb,"EV_avg","Avg Exit Velocity Against by Month",
-                88.5,"MLB Avg 88.5","mph",sel_s4p), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_bb,"EV_avg","Avg Exit Velocity Against by Month",88.5,"MLB Avg 88.5","mph",sel_s4p)
         with c4:
-            st.plotly_chart(monthly_line(sc_bb,"HardHit_pct","Hard Hit % Against by Month",
-                37.5,"MLB Avg 37.5%","Hard Hit %",sel_s4p), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_bb,"HardHit_pct","Hard Hit % Against by Month",37.5,"MLB Avg 37.5%","Hard Hit %",sel_s4p)
 
     # ── TAB 5: ADVANCED ────────────────────────────────────────────────────────
     with t5:
@@ -951,18 +1063,14 @@ else:
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         c1,c2 = st.columns(2)
         with c1:
-            st.plotly_chart(season_bar("ERA","ERA by Season (lower=better)",
-                4.20,"MLB Avg (4.20)","ERA","{:.2f}"), use_container_width=True, config=PLOT_CFG)
+            season_bar("ERA","ERA by Season (lower=better)",4.20,"MLB Avg (4.20)","ERA","{:.2f}")
         with c2:
-            st.plotly_chart(season_bar("K/9","K/9 by Season (higher=better)",
-                9.0,"MLB Avg (9.0)","K/9","{:.1f}"), use_container_width=True, config=PLOT_CFG)
+            season_bar("K/9","K/9 by Season (higher=better)",9.0,"MLB Avg (9.0)","K/9","{:.1f}")
         c3,c4 = st.columns(2)
         with c3:
-            st.plotly_chart(season_bar("WHIP","WHIP by Season (lower=better)",
-                1.28,"MLB Avg (1.28)","WHIP","{:.3f}"), use_container_width=True, config=PLOT_CFG)
+            season_bar("WHIP","WHIP by Season (lower=better)",1.28,"MLB Avg (1.28)","WHIP","{:.3f}")
         with c4:
-            st.plotly_chart(season_bar("K-BB%","K-BB% by Season (higher=better)",
-                14.5,"MLB Avg 14.5%","K-BB %","{:.1f}"), use_container_width=True, config=PLOT_CFG, key="kbb_adv_tab")
+            season_bar("K-BB%","K-BB% by Season (higher=better)",14.5,"MLB Avg 14.5%","K-BB %","{:.1f}")
 
         sel_s5p = st.selectbox("Season for Statcast Velocity Trends", sorted(sel_seasons,reverse=True), key="adv_s")
         sc_adv = {}
@@ -978,11 +1086,9 @@ else:
         st.markdown('<div class="section-header">Monthly Velocity & Spin from Statcast</div>', unsafe_allow_html=True)
         c5,c6 = st.columns(2)
         with c5:
-            st.plotly_chart(monthly_line(sc_adv,"Velo_avg","Avg Fastball Velocity by Month",
-                93.5,"MLB Avg 93.5","mph",sel_s5p), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_adv,"Velo_avg","Avg Fastball Velocity by Month",93.5,"MLB Avg 93.5","mph",sel_s5p)
         with c6:
-            st.plotly_chart(monthly_line(sc_adv,"SwStr_pct","Swinging Strike % by Month (higher=better)",
-                10.8,"MLB Avg 10.8%","SwStr %",sel_s5p), use_container_width=True, config=PLOT_CFG)
+            monthly_line(sc_adv,"SwStr_pct","Swinging Strike % by Month (higher=better)",10.8,"MLB Avg 10.8%","SwStr %",sel_s5p)
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
