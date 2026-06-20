@@ -815,14 +815,14 @@ def monthly_line(monthly_dict, col, title, ref_val, ref_label, y_title, sel_seas
 # ════════════════════════════════════════════════════════════════════════════════
 # SHARED: GM Summary (auto-narrative, Overview tab)
 # ════════════════════════════════════════════════════════════════════════════════
-def gm_summary():
+def _gm_bullets():
+    """Return GM summary bullet strings for the current comparison."""
     def _val(player, col):
         r = p_latest(player)
         return float(r[col]) if r is not None and col in r.index and pd.notna(r.get(col)) else None
 
     bullets = []
     if mode == "Hitters":
-        # Bullet 1: Offensive value via wRC+
         wrc = {p: _val(p, "wRC+") for p in PLAYERS}
         ops = {p: _val(p, "OPS")  for p in PLAYERS}
         if all(v is not None for v in wrc.values()):
@@ -838,7 +838,6 @@ def gm_summary():
             bullets.append(
                 f"**Offensive value:** {best} leads in OPS ({ops[best]:.3f} vs. {ops[other]:.3f} for {other}).")
 
-        # Bullet 2: Plate discipline
         bb = {p: _val(p, "BB%") for p in PLAYERS}
         k  = {p: _val(p, "K%")  for p in PLAYERS}
         if all(v is not None for v in bb.values()) and all(v is not None for v in k.values()):
@@ -848,7 +847,6 @@ def gm_summary():
                 f"**Plate discipline:** {disc} draws more walks ({bb[disc]:.1f}% BB rate). "
                 f"Strikeout rates — {k_str} (MLB avg ~22%).")
 
-        # Bullet 3: WAR / dollar value
         war = {p: _val(p, "WAR")     for p in PLAYERS}
         dol = {p: _val(p, "Dollars") for p in PLAYERS}
         if all(v is not None for v in war.values()):
@@ -860,8 +858,7 @@ def gm_summary():
                 f"vs. {war[other]:.1f} WAR for {other}. "
                 f"A 2-WAR player is a solid regular; 5+ WAR is All-Star caliber.")
 
-    else:  # Pitchers
-        # Bullet 1: ERA vs FIP per player
+    else:
         era = {p: _val(p, "ERA") for p in PLAYERS}
         fip = {p: _val(p, "FIP") for p in PLAYERS}
         for p in PLAYERS:
@@ -873,7 +870,6 @@ def gm_summary():
                 bullets.append(
                     f"**{p} — ERA vs. FIP:** {era[p]:.2f} ERA / {fip[p]:.2f} FIP — *{verdict}*.")
 
-        # Bullet 2: Strikeout stuff
         k9 = {p: _val(p, "K/9") for p in PLAYERS}
         if all(v is not None for v in k9.values()):
             best = max(k9, key=lambda x: k9[x])
@@ -882,7 +878,6 @@ def gm_summary():
                 f"**Swing-and-miss:** {best} leads in strikeouts at **{k9[best]:.1f} K/9** "
                 f"vs. {k9[other]:.1f} for {other} (MLB avg ~9.0).")
 
-        # Bullet 3: WAR
         war = {p: _val(p, "WAR")     for p in PLAYERS}
         dol = {p: _val(p, "Dollars") for p in PLAYERS}
         if all(v is not None for v in war.values()):
@@ -893,6 +888,11 @@ def gm_summary():
                 f"**Win value:** {best} was worth **{war[best]:.1f} fWAR**{dol_str} "
                 f"vs. {war[other]:.1f} for {other}.")
 
+    return bullets
+
+
+def gm_summary():
+    bullets = _gm_bullets()
     if not bullets:
         return
     st.markdown('<div class="section-header">GM Summary</div>', unsafe_allow_html=True)
@@ -901,6 +901,194 @@ def gm_summary():
         "".join(f"<p style='margin:4px 0'>• {b}</p>" for b in bullets) +
         "</div>", unsafe_allow_html=True)
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+
+def generate_pdf():
+    """Build a formatted PDF comparison report and return bytes."""
+    import io, re
+    from datetime import date as _dt
+    try:
+        from fpdf import FPDF
+    except ImportError:
+        return None
+
+    def _s(v):
+        return str(v).encode("latin-1", "replace").decode("latin-1")
+
+    def _strip_md(t):
+        return re.sub(r"\*+([^*]+)\*+", r"\1", str(t))
+
+    C_HDR  = (14,  17,  23)
+    C_SECT = (26,  29,  46)
+    C_GOLD = (196, 169, 98)
+    C_WHT  = (250, 250, 250)
+    C_TXT  = (30,  30,  30)
+    C_SUB  = (110, 120, 140)
+    C_ALT  = (243, 246, 252)
+    C_PA   = (70,  120, 195)
+    C_PB   = (22,  148, 105)
+    C_LINE = (210, 215, 228)
+
+    class _PDF(FPDF):
+        def footer(self):
+            self.set_y(-13)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(*C_SUB)
+            self.cell(0, 5, _s(
+                "MLB Stats API  |  FanGraphs  |  Baseball Savant  "
+                "|  MLB Player Comparison Dashboard"), align="C")
+
+    pdf = _PDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(15, 15, 15)
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    PW  = pdf.w - 30
+    COL = PW / 3
+
+    # Header bar
+    pdf.set_fill_color(*C_HDR)
+    pdf.rect(0, 0, pdf.w, 44, "F")
+    pdf.set_y(7)
+    pdf.set_font("Helvetica", "B", 19)
+    pdf.set_text_color(*C_GOLD)
+    pdf.cell(0, 11, "MLB Player Comparison Report", align="C", ln=True)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*C_WHT)
+    pdf.cell(0, 9, _s(f"{player_a}  vs.  {player_b}"), align="C", ln=True)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(155, 163, 184)
+    pdf.cell(0, 7, _s(
+        f"{mode}  |  Seasons: {', '.join(str(s) for s in sorted(sel_seasons))}"
+        f"  |  {_dt.today().strftime('%B %d, %Y')}"), align="C", ln=True)
+    pdf.set_y(50)
+
+    def sec(title):
+        pdf.ln(2)
+        pdf.set_fill_color(*C_SECT)
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.set_text_color(*C_GOLD)
+        pdf.cell(0, 6.5, _s(f"  {title}"), fill=True, border=0, ln=True)
+        pdf.ln(0.5)
+
+    def tbl_hdr():
+        pdf.set_fill_color(*C_HDR)
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.set_text_color(*C_WHT)
+        pdf.cell(COL, 6.5, "  Metric", fill=True, border=0)
+        pdf.set_text_color(*C_PA)
+        pdf.cell(COL, 6.5, _s(player_a), align="C", fill=True, border=0)
+        pdf.set_text_color(*C_PB)
+        pdf.cell(COL, 6.5, _s(player_b), align="C", fill=True, border=0, ln=True)
+        pdf.set_draw_color(*C_LINE)
+        pdf.cell(PW, 0.2, "", border="T", ln=True)
+
+    _alt = [False]
+    def row(label, va, vb, fmt="{}"):
+        _alt[0] = not _alt[0]
+        pdf.set_fill_color(*(C_ALT if _alt[0] else (255, 255, 255)))
+        pdf.set_draw_color(*C_LINE)
+        pdf.set_font("Helvetica", "", 8.5)
+        def fv(v):
+            if v is None: return "-"
+            if isinstance(v, str): return _s(v)
+            try: return fmt.format(v)
+            except: return str(v)
+        pdf.set_text_color(*C_TXT)
+        pdf.cell(COL, 6.2, _s(f"  {label}"), fill=True, border="B")
+        pdf.set_text_color(*C_PA)
+        pdf.cell(COL, 6.2, fv(va), align="C", fill=True, border="B")
+        pdf.set_text_color(*C_PB)
+        pdf.cell(COL, 6.2, fv(vb), align="C", fill=True, border="B", ln=True)
+        pdf.set_text_color(*C_TXT)
+
+    ra = p_latest(player_a)
+    rb = p_latest(player_b)
+
+    def gv(r, col):
+        if r is None or col not in r.index: return None
+        v = r.get(col)
+        return None if (v is None or (isinstance(v, float) and pd.isna(v))) else v
+
+    sa = gv(ra, "Season"); sb = gv(rb, "Season")
+    sy = f"{int(sa) if sa else '-'} / {int(sb) if sb else '-'}"
+
+    if mode == "Hitters":
+        sec(f"STANDARD HITTING  -  MOST RECENT SEASON ({sy})")
+        tbl_hdr()
+        row("Games", gv(ra,"G"),   gv(rb,"G"),   "{:.0f}")
+        row("PA",    gv(ra,"PA"),  gv(rb,"PA"),  "{:.0f}")
+        row("AVG",   gv(ra,"AVG"), gv(rb,"AVG"), "{:.3f}")
+        row("OBP",   gv(ra,"OBP"), gv(rb,"OBP"), "{:.3f}")
+        row("SLG",   gv(ra,"SLG"), gv(rb,"SLG"), "{:.3f}")
+        row("OPS",   gv(ra,"OPS"), gv(rb,"OPS"), "{:.3f}")
+        row("HR",    gv(ra,"HR"),  gv(rb,"HR"),  "{:.0f}")
+        row("RBI",   gv(ra,"RBI"), gv(rb,"RBI"), "{:.0f}")
+        row("SB",    gv(ra,"SB"),  gv(rb,"SB"),  "{:.0f}")
+        row("K%",    gv(ra,"K%"),  gv(rb,"K%"),  "{:.1f}%")
+        row("BB%",   gv(ra,"BB%"), gv(rb,"BB%"), "{:.1f}%")
+        if any(gv(r, "WAR") is not None for r in [ra, rb]):
+            sec("ADVANCED STATS (FANGRAPHS)")
+            tbl_hdr()
+            row("WAR",   gv(ra,"WAR"),     gv(rb,"WAR"),     "{:.1f}")
+            row("wRC+",  gv(ra,"wRC+"),    gv(rb,"wRC+"),    "{:.0f}")
+            row("wOBA",  gv(ra,"wOBA_fg"), gv(rb,"wOBA_fg"), "{:.3f}")
+            da = gv(ra,"Dollars"); db = gv(rb,"Dollars")
+            if da is not None or db is not None:
+                row("Est. Value",
+                    f"${da:.1f}M" if da is not None else None,
+                    f"${db:.1f}M" if db is not None else None)
+    else:
+        sec(f"STANDARD PITCHING  -  MOST RECENT SEASON ({sy})")
+        tbl_hdr()
+        row("Games", gv(ra,"G"),    gv(rb,"G"),    "{:.0f}")
+        row("GS",    gv(ra,"GS"),   gv(rb,"GS"),   "{:.0f}")
+        row("IP",    gv(ra,"IP"),   gv(rb,"IP"),   "{:.1f}")
+        wla = (f"{int(gv(ra,'W') or 0)}-{int(gv(ra,'L') or 0)}" if ra is not None else None)
+        wlb = (f"{int(gv(rb,'W') or 0)}-{int(gv(rb,'L') or 0)}" if rb is not None else None)
+        row("W-L",   wla,           wlb)
+        row("ERA",   gv(ra,"ERA"),  gv(rb,"ERA"),  "{:.2f}")
+        row("WHIP",  gv(ra,"WHIP"), gv(rb,"WHIP"), "{:.3f}")
+        row("K/9",   gv(ra,"K/9"),  gv(rb,"K/9"),  "{:.1f}")
+        row("BB/9",  gv(ra,"BB/9"), gv(rb,"BB/9"), "{:.1f}")
+        row("K%",    gv(ra,"K%"),   gv(rb,"K%"),   "{:.1f}%")
+        row("BB%",   gv(ra,"BB%"),  gv(rb,"BB%"),  "{:.1f}%")
+        row("HR/9",  gv(ra,"HR/9"), gv(rb,"HR/9"), "{:.1f}")
+        if any(gv(r, "WAR") is not None for r in [ra, rb]):
+            sec("ADVANCED STATS (FANGRAPHS)")
+            tbl_hdr()
+            row("WAR",   gv(ra,"WAR"),   gv(rb,"WAR"),   "{:.1f}")
+            row("FIP",   gv(ra,"FIP"),   gv(rb,"FIP"),   "{:.2f}")
+            row("xFIP",  gv(ra,"xFIP"),  gv(rb,"xFIP"),  "{:.2f}")
+            row("SIERA", gv(ra,"SIERA"), gv(rb,"SIERA"), "{:.2f}")
+            da = gv(ra,"Dollars"); db = gv(rb,"Dollars")
+            if da is not None or db is not None:
+                row("Est. Value",
+                    f"${da:.1f}M" if da is not None else None,
+                    f"${db:.1f}M" if db is not None else None)
+
+    # GM Summary bullets
+    bullets = _gm_bullets()
+    if bullets:
+        sec("GM SUMMARY")
+        pdf.set_font("Helvetica", "", 8.5)
+        pdf.set_text_color(*C_TXT)
+        for b in bullets:
+            pdf.ln(1)
+            pdf.multi_cell(PW, 5.5, _s(f"  - {_strip_md(b)}"))
+
+    # Disclaimer
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "I", 7.5)
+    pdf.set_text_color(*C_SUB)
+    pdf.multi_cell(0, 4.5, _s(
+        "Standard stats from MLB Stats API. Advanced stats (WAR, wRC+, FIP, xFIP, SIERA, Est. Value) "
+        "from FanGraphs for most recent selected season. "
+        "Service time estimated from MLB debut date."))
+
+    buf = io.BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — OVERVIEW (both modes)
@@ -996,6 +1184,26 @@ with t1:
         20=Poor &nbsp;·&nbsp; 40=Below Avg &nbsp;·&nbsp; 50=Average &nbsp;·&nbsp;
         55=Above Avg &nbsp;·&nbsp; 60=Plus &nbsp;·&nbsp; 70=Well Above Avg &nbsp;·&nbsp; 80=Elite
         </div>""", unsafe_allow_html=True)
+
+    # ── PDF Export ──────────────────────────────────────────────────────────────
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
+    _, btn_col = st.columns([3, 1])
+    with btn_col:
+        try:
+            pdf_bytes = generate_pdf()
+            if pdf_bytes:
+                fname = (f"{player_a.replace(' ','_')}_vs_"
+                         f"{player_b.replace(' ','_')}_{max(sel_seasons)}.pdf")
+                st.download_button(
+                    "Download PDF Report",
+                    data=pdf_bytes,
+                    file_name=fname,
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+        except Exception as _e:
+            st.caption(f"PDF export unavailable: {_e}")
 
 # ════════════════════════════════════════════════════════════════════════════════
 # SHARED: Free Agent tab (called from both hitter and pitcher branches)
