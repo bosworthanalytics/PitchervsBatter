@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+PB_IMPORT_ERROR = None
 try:
     from pybaseball import (batting_stats, pitching_stats,
                             statcast_batter, statcast_pitcher,
@@ -17,8 +18,9 @@ try:
     import pybaseball
     pybaseball.cache.enable()
     HAS_PB = True
-except Exception:
+except Exception as _e:
     HAS_PB = False
+    PB_IMPORT_ERROR = str(_e)
 
 # ── Page ───────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -112,27 +114,35 @@ st.markdown("""<style>
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_fg_batting(seasons_tuple):
-    frames = []
+    if not HAS_PB:
+        raise RuntimeError(f"pybaseball not available: {PB_IMPORT_ERROR}")
+    errors, frames = [], []
     for s in seasons_tuple:
         try:
             df = batting_stats(s, s, qual=50, ind=1)
             df["Season"] = int(s)
             frames.append(df)
-        except Exception:
-            pass
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        except Exception as e:
+            errors.append(f"{s}: {e}")
+    if not frames:
+        raise RuntimeError("batting_stats() returned no data. Errors: " + "; ".join(errors))
+    return pd.concat(frames, ignore_index=True)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_fg_pitching(seasons_tuple):
-    frames = []
+    if not HAS_PB:
+        raise RuntimeError(f"pybaseball not available: {PB_IMPORT_ERROR}")
+    errors, frames = [], []
     for s in seasons_tuple:
         try:
             df = pitching_stats(s, s, qual=10, ind=1)
             df["Season"] = int(s)
             frames.append(df)
-        except Exception:
-            pass
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        except Exception as e:
+            errors.append(f"{s}: {e}")
+    if not frames:
+        raise RuntimeError("pitching_stats() returned no data. Errors: " + "; ".join(errors))
+    return pd.concat(frames, ignore_index=True)
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_mlbam_id(fg_id_int):
@@ -304,12 +314,24 @@ with st.sidebar:
     seasons_key = tuple(sorted(sel_seasons))
     st.markdown("---")
 
-    loader_label = "Loading hitter list..." if mode=="Hitters" else "Loading pitcher list..."
-    with st.spinner(loader_label):
-        all_fg = load_fg_batting(seasons_key) if mode=="Hitters" else load_fg_pitching(seasons_key)
+    if not HAS_PB:
+        st.error(f"pybaseball failed to import: {PB_IMPORT_ERROR}")
+        st.info("The app may still be installing dependencies. Wait 2 minutes and reboot the app from the Streamlit Cloud dashboard.")
+        st.stop()
 
-    if all_fg.empty:
-        st.error("Could not load player list. Check connection.")
+    loader_label = "Loading hitter list..." if mode=="Hitters" else "Loading pitcher list..."
+    all_fg = pd.DataFrame()
+    load_error = None
+    with st.spinner(loader_label):
+        try:
+            all_fg = load_fg_batting(seasons_key) if mode=="Hitters" else load_fg_pitching(seasons_key)
+        except Exception as e:
+            load_error = str(e)
+
+    if all_fg.empty or load_error:
+        st.error("Could not load player list.")
+        st.code(load_error or "No data returned.", language=None)
+        st.info("Try: Streamlit Cloud → Manage app (bottom-right) → Reboot app")
         st.stop()
 
     sort_col = "wRC+" if (mode=="Hitters" and "wRC+" in all_fg.columns) else \
