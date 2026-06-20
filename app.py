@@ -1262,7 +1262,8 @@ if mode == "Hitters":
                     else:
                         # Counting stats: sum across all positions per season
                         agg = sub.groupby("Season")[col].sum().reset_index()
-                    sm = {str(int(r["Season"])): r[col] for _,r in agg.iterrows()}
+                    sm = {str(int(r["Season"])): (float(r[col]) if pd.notna(r[col]) else None)
+                          for _,r in agg.iterrows()}
                     data = [sm.get(s) for s in season_set]
                     color = COLORS[player]
                     ser = {"name":player,"type":"bar","barMaxWidth":70,
