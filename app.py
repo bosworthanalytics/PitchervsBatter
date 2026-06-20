@@ -367,16 +367,21 @@ def get_fielding_stats(mlbam_id, seasons_tuple):
             ip_raw = str(s.get("innings","0"))
             try: inn = float(ip_raw)
             except: inn = 0
+            po = int(s.get("putOuts", 0))
+            a  = int(s.get("assists", 0))
+            e  = int(s.get("errors", 0))
             if int(s.get("gamesPlayed", 0)) < 1: continue
+            if po + a + e == 0: continue   # DH / no fielding chances — skip
+            chances = po + a + e
+            fp = round((po + a) / chances, 3) if chances > 0 else None
             rows.append({
                 "Season": season, "Pos": pos,
                 "G":  int(s.get("gamesPlayed", 0)),
                 "GS": int(s.get("gamesStarted", 0)),
                 "INN": round(inn, 1),
-                "PO": int(s.get("putOuts", 0)),
-                "A":  int(s.get("assists", 0)),
-                "E":  int(s.get("errors", 0)),
-                "FP": float(s.get("fielding", "0") or 0),
+                "PO": po, "A": a, "E": e,
+                "Chances": chances,
+                "FP": fp,
             })
     return pd.DataFrame(rows)
 
@@ -1247,7 +1252,16 @@ if mode == "Hitters":
                 for player in PLAYERS:
                     sub = df_all[df_all["Name"]==player]
                     if sub.empty: continue
-                    agg = sub.groupby("Season")[col].mean().reset_index()
+                    if col == "FP":
+                        # Weighted FP: (total PO + A) / (total chances) per season
+                        agg = (sub.groupby("Season")
+                                  .apply(lambda x: round(
+                                      (x["PO"].sum() + x["A"].sum()) /
+                                      max(x["Chances"].sum(), 1), 3))
+                                  .reset_index(name="FP"))
+                    else:
+                        # Counting stats: sum across all positions per season
+                        agg = sub.groupby("Season")[col].sum().reset_index()
                     sm = {str(int(r["Season"])): r[col] for _,r in agg.iterrows()}
                     data = [sm.get(s) for s in season_set]
                     color = COLORS[player]
