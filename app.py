@@ -303,6 +303,43 @@ def get_fielding_stats(mlbam_id, seasons_tuple):
             })
     return pd.DataFrame(rows)
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_fa_info(mlbam_id):
+    """Service time, debut date, and CBA status from MLB Stats API."""
+    try:
+        r = requests.get(
+            f"https://statsapi.mlb.com/api/v1/people/{mlbam_id}"
+            f"?hydrate=currentTeam"
+            f"&fields=people(id,fullName,mlbDebutDate,serviceTime,currentTeam,active,primaryPosition)",
+            headers=MLB_HEADERS, timeout=10)
+        r.raise_for_status()
+        p = r.json()["people"][0]
+        debut = p.get("mlbDebutDate", "")
+        svc   = p.get("serviceTime", "")
+        team  = p.get("currentTeam", {}).get("name", "Unknown")
+        pos   = p.get("primaryPosition", {}).get("abbreviation", "")
+        svc_years, svc_days = 0, 0
+        if svc:
+            parts = str(svc).split(".")
+            svc_years = int(parts[0])
+            svc_days  = int(parts[1]) if len(parts) > 1 else 0
+        svc_float = round(svc_years + svc_days / 172, 3)
+        if svc_float >= 6.0:
+            status, sc = "FA Eligible", "#2ECC9B"
+        elif svc_float >= 3.0:
+            arb_n = min(3, int(svc_float) - 2)
+            status, sc = f"Arb {arb_n} Eligible", "#C4A962"
+        elif svc_float >= 2.134:
+            status, sc = "Super Two (Arb Eligible)", "#C4A962"
+        else:
+            status, sc = "Pre-Arbitration", SUBTEXT
+        fa_year = (int(debut[:4]) + 6) if debut else None
+        return {"debut": debut, "svc": svc, "svc_years": svc_years, "svc_days": svc_days,
+                "svc_float": svc_float, "team": team, "pos": pos,
+                "status": status, "status_clr": sc, "fa_year": fa_year}
+    except Exception:
+        return {}
+
 @st.cache_data(ttl=7200, show_spinner=False)
 def get_monthly_hitting_api(mlbam_id, season):
     url = (f"https://statsapi.mlb.com/api/v1/people/{mlbam_id}/stats"
@@ -527,9 +564,9 @@ mlbam_ids = {p: p_mlbam(p) for p in PLAYERS}
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 if mode == "Hitters":
-    t1,t2,t3,t4,t5 = st.tabs(["Overview","Hitting","Defense","Statcast","Plate Discipline"])
+    t1,t2,t3,t4,t5,t6 = st.tabs(["Overview","Hitting","Defense","Statcast","Plate Discipline","Free Agent"])
 else:
-    t1,t2,t3,t4,t5 = st.tabs(["Overview","Results","Arsenal","Batted Ball","Advanced"])
+    t1,t2,t3,t4,t5,t6 = st.tabs(["Overview","Results","Arsenal","Batted Ball","Advanced","Free Agent"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # SHARED: performance index bar (used in both Overview tabs)
@@ -758,6 +795,125 @@ with t1:
         20=Poor &nbsp;·&nbsp; 40=Below Avg &nbsp;·&nbsp; 50=Average &nbsp;·&nbsp;
         55=Above Avg &nbsp;·&nbsp; 60=Plus &nbsp;·&nbsp; 70=Well Above Avg &nbsp;·&nbsp; 80=Elite
         </div>""", unsafe_allow_html=True)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# SHARED: Free Agent tab (called from both hitter and pitcher branches)
+# ════════════════════════════════════════════════════════════════════════════════
+def render_fa_tab():
+    st.markdown('<div class="section-header">Free Agent & Contract Status</div>', unsafe_allow_html=True)
+    fa_data = {}
+    for p in PLAYERS:
+        mid = mlbam_ids[p]
+        if mid:
+            with st.spinner(f"Loading FA info for {p}..."):
+                fa_data[p] = get_fa_info(mid)
+        else:
+            fa_data[p] = {}
+
+    # ── Player cards ──────────────────────────────────────────────────────────
+    p_cols = st.columns(len(PLAYERS))
+    for col, player in zip(p_cols, PLAYERS):
+        d   = fa_data.get(player, {})
+        clr = COLORS[player]
+        sc  = d.get("status_clr", SUBTEXT)
+        with col:
+            st.markdown(f'<div class="section-header" style="color:{clr}">{player}</div>',
+                        unsafe_allow_html=True)
+            if not d:
+                st.warning("Could not load FA info from MLB Stats API.")
+                continue
+            st.markdown(f"""
+<div style="background:{CARD_BG};border:1px solid {LINE_CLR};border-radius:8px;padding:16px">
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">CURRENT TEAM</div>
+  <div style="font-size:1rem;color:{TEXT};font-weight:600;margin-bottom:10px">{d.get('team','—')}</div>
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">POSITION</div>
+  <div style="font-size:.95rem;color:{TEXT};margin-bottom:10px">{d.get('pos','—')}</div>
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">MLB DEBUT</div>
+  <div style="font-size:.95rem;color:{TEXT};margin-bottom:10px">{d.get('debut','—')}</div>
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">SERVICE TIME</div>
+  <div style="font-size:.95rem;color:{TEXT};margin-bottom:10px">{d.get('svc_years',0)} yrs, {d.get('svc_days',0)} days</div>
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">CBA STATUS</div>
+  <div style="font-size:.95rem;font-weight:600;color:{sc};margin-bottom:10px">{d.get('status','—')}</div>
+  <div style="font-size:.78rem;color:{SUBTEXT};letter-spacing:.05em">EST. FA YEAR</div>
+  <div style="font-size:1.05rem;color:{TEXT};font-weight:700">{d.get('fa_year','—')}</div>
+</div>""", unsafe_allow_html=True)
+            q = player.replace(" ", "+")
+            st.markdown(
+                f'<div style="margin-top:8px"><a href="https://www.spotrac.com/search/?query={q}+mlb"'
+                f' target="_blank" style="color:{GOLD};font-size:.85rem">View contract on Spotrac →</a></div>',
+                unsafe_allow_html=True)
+
+    # ── Service time progress chart ───────────────────────────────────────────
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Service Time Progress to Free Agency</div>',
+                unsafe_allow_html=True)
+    valid = [(p, fa_data[p]) for p in PLAYERS if fa_data.get(p) and "svc_float" in fa_data[p]]
+    if valid:
+        names  = [p for p, _ in valid]
+        earned = [round(min(d["svc_float"], 6.0), 3) for _, d in valid]
+        remain = [round(max(0.0, 6.0 - d["svc_float"]), 3) for _, d in valid]
+        ech({
+            "backgroundColor": CARD_BG,
+            "title": {"text": "MLB Service Years  (6.000 = FA Eligible)",
+                      "textStyle": {"color": TEXT, "fontSize": 13}, "left": "center", "top": 4},
+            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"},
+                        "backgroundColor": CARD_BG, "borderColor": LINE_CLR,
+                        "textStyle": {"color": TEXT, "fontSize": 11}},
+            "legend": {"bottom": 4, "textStyle": {"color": TEXT},
+                       "data": ["Service Time", "Remaining to FA"]},
+            "grid": {"left": "5%", "right": "5%", "top": "18%", "bottom": "18%",
+                     "containLabel": True},
+            "xAxis": {"type": "value", "min": 0, "max": 6,
+                      "axisLabel": {"color": SUBTEXT, "formatter": "{value} yr"},
+                      "splitLine": {"lineStyle": {"color": LINE_CLR}},
+                      "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+            "yAxis": {"type": "category", "data": names,
+                      "axisLabel": {"color": TEXT},
+                      "axisLine": {"lineStyle": {"color": LINE_CLR}}},
+            "series": [
+                {"name": "Service Time", "type": "bar", "stack": "svc", "barMaxWidth": 55,
+                 "data": [{"value": v,
+                           "itemStyle": {"color": COLORS[p], "borderRadius": [0, 0, 0, 0]}}
+                          for p, v in zip(names, earned)],
+                 "label": {"show": True, "position": "inside",
+                           "formatter": "{c} yrs", "color": "#111",
+                           "fontSize": 11, "fontWeight": "bold"}},
+                {"name": "Remaining to FA", "type": "bar", "stack": "svc", "barMaxWidth": 55,
+                 "data": [{"value": v,
+                           "itemStyle": {"color": hex_rgba(LINE_CLR, 0.7),
+                                         "borderRadius": [0, 4, 4, 0]}}
+                          for v in remain],
+                 "label": {"show": False}},
+            ],
+        }, height=210)
+
+    # ── CBA rules ─────────────────────────────────────────────────────────────
+    st.markdown("""<div class="info-box">
+    <b style="color:#C4A962">MLB Service Time Rules (2023 CBA):</b><br/>
+    <b>Pre-Arb:</b> &lt;3 service years — team controls salary &nbsp;·&nbsp;
+    <b>Super Two:</b> Top ~22% of players with 2–3 yrs earn a 4th arbitration year &nbsp;·&nbsp;
+    <b>Arb 1–3:</b> 3–6 service years — salary determined by arbitration &nbsp;·&nbsp;
+    <b>FA Eligible:</b> 6 full service years — free to sign with any team<br/>
+    <i style="color:{SUBTEXT}">Note: service time is paused during IL stints and option years.
+    Est. FA year is debut year + 6 and may differ from actual eligibility.</i>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Full contract links ────────────────────────────────────────────────────
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Full Contract & Projected Value</div>',
+                unsafe_allow_html=True)
+    st.caption("Current salary, multi-year contract breakdown, and projected next contract "
+               "are available on Spotrac.")
+    lc1, lc2 = st.columns(2)
+    for col, player in zip([lc1, lc2], PLAYERS):
+        with col:
+            q = player.replace(" ", "+")
+            st.markdown(
+                f'<a href="https://www.spotrac.com/search/?query={q}+mlb" target="_blank">'
+                f'<div style="background:{CARD_BG};border:1px solid {LINE_CLR};border-radius:8px;'
+                f'padding:12px;text-align:center">'
+                f'<span style="color:{GOLD};font-size:.9rem">Spotrac: {player} →</span>'
+                f'</div></a>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # HITTER TABS 2-5
@@ -991,6 +1147,10 @@ if mode == "Hitters":
         with c4:
             season_bar("BB%","Walk Rate by Season (%)",8.5,"MLB Avg 8.5%","BB %","{:.1f}")
 
+    # ── TAB 6: FREE AGENT ──────────────────────────────────────────────────────
+    with t6:
+        render_fa_tab()
+
 # ════════════════════════════════════════════════════════════════════════════════
 # PITCHER TABS 2-5
 # ════════════════════════════════════════════════════════════════════════════════
@@ -1183,6 +1343,10 @@ else:
             monthly_line(sc_adv,"Velo_avg","Avg Fastball Velocity by Month",93.5,"MLB Avg 93.5","mph",sel_s5p)
         with c6:
             monthly_line(sc_adv,"SwStr_pct","Swinging Strike % by Month (higher=better)",10.8,"MLB Avg 10.8%","SwStr %",sel_s5p)
+
+    # ── TAB 6: FREE AGENT ──────────────────────────────────────────────────────
+    with t6:
+        render_fa_tab()
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
