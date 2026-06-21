@@ -606,8 +606,8 @@ if len(player_list) < 2:
     st.stop()
 
 if mode == "Hitters":
-    def_a = next((p for p in player_list if "Lee" in p and "Jung" in p), player_list[0])
-    def_b = next((p for p in player_list if "Rafaela" in p), player_list[1])
+    def_a = next((p for p in player_list if "Judge" in p and "Aaron" in p), player_list[0])
+    def_b = next((p for p in player_list if "Harper" in p and "Bryce" in p), player_list[1])
 else:
     def_a = next((p for p in player_list if "Schlittler" in p), player_list[0])
     def_b = next((p for p in player_list if "Ohtani" in p), player_list[1])
@@ -615,11 +615,13 @@ else:
 pcol1, pcol2 = st.columns(2)
 with pcol1:
     player_a = st.selectbox("Player A", player_list,
-                            index=player_list.index(def_a) if def_a in player_list else 0)
+                            index=player_list.index(def_a) if def_a in player_list else 0,
+                            key=f"player_a_{mode}")
 with pcol2:
     pb_opts = [p for p in player_list if p != player_a]
     def_b_i = pb_opts.index(def_b) if def_b in pb_opts else 0
-    player_b = st.selectbox("Player B", pb_opts, index=def_b_i)
+    player_b = st.selectbox("Player B", pb_opts, index=def_b_i,
+                            key=f"player_b_{mode}")
 
 st.markdown("---")
 
@@ -961,9 +963,13 @@ def generate_pdf():
     COL = PW / 3
 
     # Header bar
+    import os
     pdf.set_fill_color(*C_HDR)
-    pdf.rect(0, 0, pdf.w, 44, "F")
-    pdf.set_y(7)
+    pdf.rect(0, 0, pdf.w, 50, "F")
+    logo_path = "assets/logo.png"
+    if os.path.exists(logo_path):
+        pdf.image(logo_path, x=5, y=5, h=40)
+    pdf.set_y(8)
     pdf.set_font("Helvetica", "B", 19)
     pdf.set_text_color(*C_GOLD)
     pdf.cell(0, 11, "MLB Player Comparison Report", align="C", ln=True)
@@ -975,7 +981,7 @@ def generate_pdf():
     pdf.cell(0, 7, _s(
         f"{mode}  |  Seasons: {', '.join(str(s) for s in sorted(sel_seasons))}"
         f"  |  {_dt.today().strftime('%B %d, %Y')}"), align="C", ln=True)
-    pdf.set_y(50)
+    pdf.set_y(56)
 
     def sec(title):
         pdf.ln(2)
