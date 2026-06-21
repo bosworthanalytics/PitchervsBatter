@@ -1641,7 +1641,8 @@ if mode == "Hitters":
                             ser["markLine"] = {"silent":True,"symbol":"none",
                                 "lineStyle":{"color":GOLD,"type":"dashed","width":1.5},
                                 "data":[{"yAxis":ref}],
-                                "label":{"show":True,"formatter":ref_lbl,"color":GOLD,"position":"end"}}
+                                "label":{"show":True,"formatter":ref_lbl,"color":GOLD,
+                                         "position":"insideStartTop","backgroundColor":CARD_BG,"padding":[2,4]}}
                         series.append(ser)
                     return {**_base(title),
                         "legend":{"bottom":4,"textStyle":{"color":TEXT},"data":PLAYERS},
