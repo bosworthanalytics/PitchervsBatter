@@ -1150,8 +1150,24 @@ def _compute_scouting_grades(player):
         ipg = ip / max(g, 1)
         is_starter = gs > 0
         stamina = clamp(ipg * 11) if is_starter else clamp(35 + ipg * 5)
+
+        # FB Velo grade from Statcast release_speed (MLB avg ~93.5 mph = 50)
+        velo_grade = 50
+        if HAS_PB:
+            mid = p_mlbam(player)
+            if mid:
+                for s in sorted(sel_seasons, reverse=True):
+                    raw = get_statcast_pitcher_raw(mid, s)
+                    if not raw.empty and "release_speed" in raw.columns:
+                        fb = raw[raw["pitch_type"].isin(["FF", "SI"])]["release_speed"].dropna()
+                        if len(fb) < 5:
+                            fb = raw[raw["pitch_type"].isin(["FF", "SI", "FC"])]["release_speed"].dropna()
+                        if len(fb) >= 5:
+                            velo_grade = clamp(50 + (fb.mean() - 93.5) * 5)
+                            break
+
         return {
-            "FB Velo":      50,
+            "FB Velo":      velo_grade,
             "Command":      clamp(50 + (8.5 - bb) * 2.5),
             "Stamina":      stamina,
             "Deception":    clamp(50 + (k  - 23.0) * 1.5),
