@@ -965,7 +965,7 @@ def generate_pdf():
     # Header bar
     import os
     _here = os.path.dirname(os.path.abspath(__file__))
-    logo_path = os.path.join(_here, "assets", "logo.png")
+    logo_path = os.path.join(_here, "assets", "Logo.PNG")
     pdf.set_fill_color(*C_HDR)
     pdf.rect(0, 0, pdf.w, 50, "F")
     if os.path.exists(logo_path):
