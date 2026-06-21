@@ -154,6 +154,10 @@ st.markdown("""<style>
 #MainMenu,footer,header{visibility:hidden}
 [data-testid="collapsedControl"]{display:none !important}
 [data-testid="stSidebarCollapseButton"]{display:none !important}
+@media (max-width:768px){
+  [data-testid="stDataFrame"] iframe{-webkit-font-smoothing:antialiased;image-rendering:-webkit-optimize-contrast}
+  [data-testid="stDataFrame"]>div{-webkit-overflow-scrolling:touch}
+}
 </style>""", unsafe_allow_html=True)
 
 # ── Cached data loaders ────────────────────────────────────────────────────────
@@ -601,8 +605,12 @@ if len(player_list) < 2:
     st.error("Not enough players. Try different seasons.")
     st.stop()
 
-def_a = next((p for p in player_list if "Lee" in p and "Jung" in p), player_list[0])
-def_b = next((p for p in player_list if "Rafaela" in p), player_list[1])
+if mode == "Hitters":
+    def_a = next((p for p in player_list if "Lee" in p and "Jung" in p), player_list[0])
+    def_b = next((p for p in player_list if "Rafaela" in p), player_list[1])
+else:
+    def_a = next((p for p in player_list if "Schlittler" in p), player_list[0])
+    def_b = next((p for p in player_list if "Ohtani" in p), player_list[1])
 
 pcol1, pcol2 = st.columns(2)
 with pcol1:
@@ -745,7 +753,7 @@ def season_bar(col, title, ref_val, ref_label, y_title, fmt="{:.3f}", height=340
                 "lineStyle": {"color": GOLD, "type": "dashed", "width": 1.5},
                 "data": [{"yAxis": ref_val}],
                 "label": {"show": True, "formatter": ref_label, "color": GOLD,
-                          "position": "insideEndTop", "backgroundColor": CARD_BG,
+                          "position": "insideStartTop", "backgroundColor": CARD_BG,
                           "padding": [2, 4]}
             }
         series.append(ser)
@@ -794,7 +802,9 @@ def monthly_line(monthly_dict, col, title, ref_val, ref_label, y_title, sel_seas
                 "silent": True, "symbol": "none",
                 "lineStyle": {"color": GOLD, "type": "dotted", "width": 1.5},
                 "data": [{"yAxis": ref_val}],
-                "label": {"show": True, "formatter": ref_label, "color": GOLD}
+                "label": {"show": True, "formatter": ref_label, "color": GOLD,
+                          "position": "insideStartTop", "backgroundColor": CARD_BG,
+                          "padding": [2, 4]}
             }
         series.append(ser)
     opts = {
@@ -1094,6 +1104,54 @@ def generate_pdf():
     pdf.output(buf)
     return buf.getvalue()
 
+
+def _compute_scouting_grades(player):
+    """Estimate 20-80 tool grades from available stats for any player."""
+    row = p_latest(player)
+    if row is None:
+        return None
+
+    def gv(col, default=0.0):
+        v = row.get(col)
+        return float(v) if v is not None and pd.notna(v) else default
+
+    def clamp(x):
+        return max(20, min(80, round(x)))
+
+    if mode == "Hitters":
+        wrc = gv("wRC+", 100)
+        slg = gv("SLG",  0.400)
+        avg = gv("AVG",  0.248)
+        sb  = gv("SB",   0)
+        g   = gv("G",    100)
+        iso = slg - avg
+        sbr = sb / max(g, 1) * 162
+        return {
+            "Hit":   clamp(50 + (wrc - 100) * 0.30),
+            "Power": clamp(20 + iso * 200),
+            "Speed": clamp(35 + sbr * 0.65),
+            "Field": 50,
+            "Arm":   50,
+        }
+    else:
+        bb  = gv("BB%", 8.5)
+        k   = gv("K%",  23.0)
+        k9  = gv("K/9", 9.0)
+        ip  = gv("IP",  50.0)
+        gs  = gv("GS",  0)
+        g   = gv("G",   20)
+        ipg = ip / max(g, 1)
+        is_starter = gs > 0
+        stamina = clamp(ipg * 11) if is_starter else clamp(35 + ipg * 5)
+        return {
+            "FB Velo":      50,
+            "Command":      clamp(50 + (8.5 - bb) * 2.5),
+            "Stamina":      stamina,
+            "Deception":    clamp(50 + (k  - 23.0) * 1.5),
+            "Arm Strength": clamp(50 + (k9 - 9.0)  * 3.0),
+        }
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — OVERVIEW (both modes)
 # ════════════════════════════════════════════════════════════════════════════════
@@ -1141,16 +1199,18 @@ with t1:
         with ov2:
             season_bar("ERA","ERA by Season",4.20,"MLB Avg (4.20)","ERA","{:.2f}")
 
-    # Scouting grades (if available for selected players)
-    has_grades = any(p in SCOUTING for p in PLAYERS)
+    # Scouting grades — computed from stats for any player
+    sc_grades = {p: _compute_scouting_grades(p) for p in PLAYERS}
+    has_grades = any(g is not None for g in sc_grades.values())
     if has_grades:
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Scouting Tool Grades — 20-80 Scale (FanGraphs)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Estimated Tool Grades — 20-80 Scale</div>', unsafe_allow_html=True)
         tools = ["Hit","Power","Speed","Field","Arm"] if mode=="Hitters" else ["FB Velo","Command","Stamina","Deception","Arm Strength"]
         sc_series = []
         for i, player in enumerate(PLAYERS):
-            if player not in SCOUTING: continue
-            grades = [SCOUTING[player].get(t,50) for t in tools]
+            grade_data = sc_grades.get(player)
+            if grade_data is None: continue
+            grades = [grade_data.get(t, 50) for t in tools]
             ser = {
                 "name": player, "type": "bar",
                 "data": [{"value": g, "label": {"show": True, "position": "right",
@@ -1170,8 +1230,8 @@ with t1:
                     "data":[{"xAxis":50}],"label":{"show":False}}
             sc_series.append(ser)
         ech({
-            **_base("Tool Grades — 20-80 Scale"),
-            "legend": {"bottom":4,"textStyle":{"color":TEXT},"data":[p for p in PLAYERS if p in SCOUTING]},
+            **_base("Estimated Tool Grades — 20-80 Scale"),
+            "legend": {"bottom":4,"textStyle":{"color":TEXT},"data":PLAYERS},
             "grid": {"left":"3%","right":"22%","top":"10%","bottom":"10%","containLabel":True},
             "xAxis": {"type":"value","min":20,"max":80,
                       "axisLabel":{"color":SUBTEXT,"formatter":"{value}"},
@@ -1187,6 +1247,8 @@ with t1:
         <b style="color:#C4A962">20-80 Scale:</b> &nbsp;
         20=Poor &nbsp;·&nbsp; 40=Below Avg &nbsp;·&nbsp; 50=Average &nbsp;·&nbsp;
         55=Above Avg &nbsp;·&nbsp; 60=Plus &nbsp;·&nbsp; 70=Well Above Avg &nbsp;·&nbsp; 80=Elite
+        <br/><i style="color:#9BA3B8">Grades estimated from available stats (wRC+, ISO, SB, K%, BB%, K/9).
+        Field/Arm and FB Velo default to 50 where not derivable from the public API.</i>
         </div>""", unsafe_allow_html=True)
 
     # ── PDF Export ──────────────────────────────────────────────────────────────
@@ -1488,7 +1550,7 @@ if mode == "Hitters":
                             "lineStyle":{"color":GOLD,"type":"dashed","width":1.5},
                             "data":[{"yAxis":ref_val}],
                             "label":{"show":True,"formatter":ref_lbl,"color":GOLD,
-                                     "position":"insideEndTop","backgroundColor":CARD_BG,"padding":[2,4]}}
+                                     "position":"insideStartTop","backgroundColor":CARD_BG,"padding":[2,4]}}
                     series.append(ser)
                 ech({**_base(title),
                     "legend":{"bottom":4,"textStyle":{"color":TEXT},"data":PLAYERS},
