@@ -23,6 +23,14 @@ except Exception as _e:
     HAS_PB = False
     PB_IMPORT_ERROR = str(_e)
 
+try:
+    import anthropic as _anthropic
+    _ANT_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
+    HAS_ANTHROPIC = bool(_ANT_KEY and not _ANT_KEY.startswith("paste"))
+except Exception:
+    HAS_ANTHROPIC = False
+    _ANT_KEY = ""
+
 # ── Page ───────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="MLB Player Comparison | Analytics",
@@ -158,6 +166,20 @@ st.markdown("""<style>
   [data-testid="stDataFrame"] iframe{-webkit-font-smoothing:antialiased;image-rendering:-webkit-optimize-contrast}
   [data-testid="stDataFrame"]>div{-webkit-overflow-scrolling:touch}
 }
+.grade-pill{display:inline-block;padding:3px 10px;border-radius:12px;
+            font-weight:700;font-size:.85rem;color:#fff;margin:2px 0}
+.grade-row{display:flex;align-items:center;gap:12px;padding:7px 10px;
+           border-bottom:1px solid #2D3250}
+.grade-tool{color:#FAFAFA;font-weight:600;min-width:130px;font-size:.88rem}
+.grade-note{color:#9BA3B8;font-size:.78rem;flex:1}
+.chat-msg-user{background:#1A1D2E;border-radius:12px 12px 4px 12px;
+               padding:10px 14px;margin:6px 0;color:#FAFAFA;font-size:.9rem}
+.chat-msg-bot{background:#2D3250;border-radius:12px 12px 12px 4px;
+              padding:10px 14px;margin:6px 0;color:#FAFAFA;font-size:.9rem}
+.nav-banner{background:#1A1D2E;border-bottom:2px solid #C4A962;
+            padding:10px 16px;margin-bottom:16px;border-radius:8px;
+            display:flex;align-items:center;gap:16px}
+.nav-title{color:#C4A962;font-size:1.1rem;font-weight:800;letter-spacing:1px}
 </style>""", unsafe_allow_html=True)
 
 # ── Cached data loaders ────────────────────────────────────────────────────────
@@ -298,6 +320,23 @@ def load_fangraphs_pitching(seasons_tuple):
         except Exception:
             pass
     return pd.DataFrame(frames) if frames else pd.DataFrame()
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_team_stats(season, group="hitting"):
+    url = (f"https://statsapi.mlb.com/api/v1/teams/stats"
+           f"?stats=season&group={group}&season={season}&sportIds=1&gameType=R")
+    try:
+        splits = requests.get(url, headers=MLB_HEADERS, timeout=20).json()\
+                         .get("stats", [{}])[0].get("splits", [])
+        rows = []
+        for sp in splits:
+            t = sp.get("team", {}); s = sp.get("stat", {})
+            row = {"team_id": t.get("id"), "Team": t.get("name", "")}
+            row.update({k: v for k, v in s.items()})
+            rows.append(row)
+        return pd.DataFrame(rows)
+    except Exception:
+        return pd.DataFrame()
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_platoon_splits(mlbam_id, season, group="hitting"):
@@ -555,6 +594,197 @@ def build_arsenal(sc):
     agg["Pitch"]  = agg["pitch_type"].map(PITCH_NAMES).fillna(agg["pitch_type"])
     return agg.sort_values("Usage%", ascending=False)
 
+# ── App Navigation ─────────────────────────────────────────────────────────────
+st.markdown('<div class="nav-banner"><span class="nav-title">⚾ BOSWORTH ANALYTICS · MLB DASHBOARD</span></div>',
+            unsafe_allow_html=True)
+app_mode = st.radio("", ["Player Comparison", "Team Comparison", "AI Chat"],
+                    horizontal=True, key="top_app_mode", label_visibility="collapsed")
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEAM COMPARISON MODE
+# ════════════════════════════════════════════════════════════════════════════════
+if app_mode == "Team Comparison":
+    st.markdown('<div class="section-header">Team Comparison</div>', unsafe_allow_html=True)
+    tc1, tc2, tc3 = st.columns([1, 1, 1])
+    with tc1:
+        tc_season = st.selectbox("Season", [2026, 2025, 2024, 2023], key="tc_season")
+    with tc2:
+        tc_group = st.radio("Stats", ["Hitting", "Pitching"], horizontal=True, key="tc_group")
+
+    with st.spinner("Loading team stats..."):
+        team_df = load_team_stats(tc_season, tc_group.lower())
+
+    if team_df.empty:
+        st.error("Could not load team stats.")
+        st.stop()
+
+    team_list = sorted(team_df["Team"].tolist())
+    col_a, col_b = st.columns(2)
+    with col_a:
+        team_a = st.selectbox("Team A", team_list,
+                              index=team_list.index("New York Yankees") if "New York Yankees" in team_list else 0,
+                              key="tc_team_a")
+    with col_b:
+        team_b = st.selectbox("Team B", [t for t in team_list if t != team_a],
+                              index=0, key="tc_team_b")
+
+    row_a = team_df[team_df["Team"] == team_a].iloc[0]
+    row_b = team_df[team_df["Team"] == team_b].iloc[0]
+
+    if tc_group == "Hitting":
+        metrics = [("AVG","Batting Avg","{:.3f}",False),("obp","OBP","{:.3f}",False),
+                   ("slg","SLG","{:.3f}",False),("ops","OPS","{:.3f}",False),
+                   ("homeRuns","HR","{:.0f}",False),("runs","Runs","{:.0f}",False),
+                   ("stolenBases","SB","{:.0f}",False),("strikeOuts","K","{:.0f}",True),
+                   ("baseOnBalls","BB","{:.0f}",False)]
+    else:
+        metrics = [("era","ERA","{:.2f}",True),("whip","WHIP","{:.3f}",True),
+                   ("strikeOuts","K","{:.0f}",False),("baseOnBalls","BB","{:.0f}",True),
+                   ("saves","SV","{:.0f}",False),("inningsPitched","IP","{:.1f}",False),
+                   ("homeRuns","HR Allowed","{:.0f}",True)]
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    mc1, mc2 = st.columns(2)
+    for i, (col, label, fmt, lower_better) in enumerate(metrics):
+        val_a = row_a.get(col, row_a.get(col.lower()))
+        val_b = row_b.get(col, row_b.get(col.lower()))
+        try:
+            va, vb = float(val_a), float(val_b)
+            if lower_better:
+                color_a = "#2ecc71" if va < vb else ("#e74c3c" if va > vb else "#9BA3B8")
+                color_b = "#2ecc71" if vb < va else ("#e74c3c" if vb > va else "#9BA3B8")
+            else:
+                color_a = "#2ecc71" if va > vb else ("#e74c3c" if va < vb else "#9BA3B8")
+                color_b = "#2ecc71" if vb > va else ("#e74c3c" if vb < va else "#9BA3B8")
+            str_a, str_b = fmt.format(va), fmt.format(vb)
+        except Exception:
+            str_a = str_b = "N/A"
+            color_a = color_b = "#9BA3B8"
+
+        target = mc1 if i % 2 == 0 else mc2
+        with target:
+            opts = {
+                **_base(label),
+                "xAxis": {"type": "category", "data": [team_a, team_b],
+                          "axisLabel": {"color": TEXT, "fontSize": 9}},
+                "yAxis": {"type": "value", "axisLabel": {"color": SUBTEXT, "fontSize": 9},
+                          "splitLine": {"lineStyle": {"color": LINE_CLR}}},
+                "series": [{"type": "bar", "barMaxWidth": 60,
+                            "data": [
+                                {"value": float(val_a) if val_a else 0,
+                                 "itemStyle": {"color": color_a},
+                                 "label": {"show": True, "position": "top",
+                                           "formatter": str_a, "color": TEXT, "fontSize": 10}},
+                                {"value": float(val_b) if val_b else 0,
+                                 "itemStyle": {"color": color_b},
+                                 "label": {"show": True, "position": "top",
+                                           "formatter": str_b, "color": TEXT, "fontSize": 10}},
+                            ]}],
+                "grid": {"left":"8%","right":"8%","top":"22%","bottom":"18%","containLabel":True},
+            }
+            ech(opts, height=220)
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    show_cols = ["Team"] + [m[0] for m in metrics]
+    avail = [c for c in show_cols if c in team_df.columns]
+    st.dataframe(team_df[avail].set_index("Team").loc[[team_a, team_b]],
+                 use_container_width=True)
+    st.stop()
+
+# ════════════════════════════════════════════════════════════════════════════════
+# AI CHAT MODE
+# ════════════════════════════════════════════════════════════════════════════════
+if app_mode == "AI Chat":
+    st.markdown('<div class="section-header">AI Baseball Analyst</div>', unsafe_allow_html=True)
+    if not HAS_ANTHROPIC:
+        st.warning("Add your Anthropic API key to `.streamlit/secrets.toml` to enable the chatbot.")
+        st.code('ANTHROPIC_API_KEY = "sk-ant-..."', language="toml")
+        st.stop()
+
+    chat_mode = st.radio("Compare", ["Hitters", "Pitchers"], horizontal=True, key="chat_mode")
+    chat_season = st.selectbox("Season", [2026, 2025, 2024, 2023], key="chat_season")
+    chat_key = tuple(sorted([chat_season]))
+
+    with st.spinner("Loading player list..."):
+        chat_fg = load_mlb_hitting(chat_key) if chat_mode == "Hitters" else load_mlb_pitching(chat_key)
+        try:
+            chat_adv = load_fangraphs_batting(chat_key) if chat_mode == "Hitters" \
+                       else load_fangraphs_pitching(chat_key)
+            if not chat_adv.empty:
+                chat_fg["IDmlb"] = pd.to_numeric(chat_fg["IDmlb"], errors="coerce")
+                chat_adv["IDmlb"] = pd.to_numeric(chat_adv["IDmlb"], errors="coerce")
+                chat_fg = chat_fg.merge(chat_adv, on=["IDmlb","Season"], how="left")
+        except Exception:
+            pass
+
+    chat_players = sorted(chat_fg["Name"].dropna().unique().tolist()) if not chat_fg.empty else []
+    cp1, cp2 = st.columns(2)
+    with cp1:
+        chat_pa = st.selectbox("Player A", chat_players, key="chat_pa")
+    with cp2:
+        chat_pb = st.selectbox("Player B", [p for p in chat_players if p != chat_pa],
+                               key="chat_pb")
+
+    def _get_stats_str(name):
+        rows = chat_fg[chat_fg["Name"] == name].sort_values("Season", ascending=False)
+        if rows.empty: return "No data"
+        r = rows.iloc[0]
+        keep = (["Season","AVG","OBP","SLG","OPS","wRC+","WAR","HR","RBI","SB","BB%","K%"]
+                if chat_mode == "Hitters"
+                else ["Season","ERA","WHIP","K/9","BB/9","K%","BB%","WAR","FIP","xFIP"])
+        parts = [f"{c}={r[c]:.3f}" if isinstance(r.get(c), float) else f"{c}={r.get(c,'N/A')}"
+                 for c in keep if c in r.index]
+        return ", ".join(parts)
+
+    sys_prompt = f"""You are an expert MLB analytics assistant for Bosworth Analytics.
+You have access to real {chat_season} stats for any player the user asks about.
+Mode: {chat_mode}. Answer questions analytically, concisely, and back every claim with numbers.
+Do not make up stats — if data is unavailable, say so.
+
+Current comparison players loaded:
+{chat_pa}: {_get_stats_str(chat_pa)}
+{chat_pb}: {_get_stats_str(chat_pb)}
+
+MLB Averages ({chat_season}): {HIT_AVG if chat_mode == 'Hitters' else PIT_AVG}
+
+You can also discuss any other MLB players in general based on your training knowledge."""
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"],
+                             avatar="🧑" if msg["role"] == "user" else "⚾"):
+            st.markdown(msg["content"])
+
+    if prompt := st.chat_input(f"Ask about {chat_pa}, {chat_pb}, or any MLB player..."):
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="🧑"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant", avatar="⚾"):
+            with st.spinner("Analyzing..."):
+                try:
+                    client = _anthropic.Anthropic(api_key=_ANT_KEY)
+                    resp = client.messages.create(
+                        model="claude-haiku-4-5-20251001",
+                        max_tokens=600,
+                        system=sys_prompt,
+                        messages=[{"role": m["role"], "content": m["content"]}
+                                  for m in st.session_state.chat_history],
+                    )
+                    answer = resp.content[0].text
+                except Exception as e:
+                    answer = f"Error connecting to AI: {e}"
+                st.markdown(answer)
+                st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+    if st.session_state.chat_history:
+        if st.button("Clear Chat", key="clear_chat"):
+            st.session_state.chat_history = []
+            st.rerun()
+    st.stop()
+
 # ── Controls (top of page, no sidebar needed) ──────────────────────────────────
 st.markdown('<div class="section-header">Select Players</div>', unsafe_allow_html=True)
 ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
@@ -673,9 +903,9 @@ mlbam_ids = {p: p_mlbam(p) for p in PLAYERS}
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 if mode == "Hitters":
-    t1,t2,t3,t4,t5,t6 = st.tabs(["Overview","Hitting","Defense","Statcast","Plate Discipline","Free Agent"])
+    t1,t2,t3,t4,t5,t6,t7 = st.tabs(["Overview","Hitting","Defense","Statcast","Plate Discipline","Free Agent","Scouting Report"])
 else:
-    t1,t2,t3,t4,t5,t6 = st.tabs(["Overview","Results","Arsenal","Batted Ball","Advanced","Free Agent"])
+    t1,t2,t3,t4,t5,t6,t7 = st.tabs(["Overview","Results","Arsenal","Batted Ball","Advanced","Free Agent","Scouting Report"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # SHARED: performance index bar (used in both Overview tabs)
@@ -1947,6 +2177,108 @@ else:
     # ── TAB 6: FREE AGENT ──────────────────────────────────────────────────────
     with t6:
         render_fa_tab()
+
+    # ── TAB 7: SCOUTING REPORT ─────────────────────────────────────────────────
+    with t7:
+        st.markdown('<div class="section-header">Scouting Report — 20-80 Tool Grades</div>',
+                    unsafe_allow_html=True)
+
+        def _grade_color(g):
+            if g >= 70: return "#1a7a4a"
+            if g >= 60: return "#2ecc71"
+            if g >= 55: return "#7dce82"
+            if g >= 50: return "#95a5a6"
+            if g >= 45: return "#e67e22"
+            if g >= 40: return "#e74c3c"
+            return "#922b21"
+
+        def _render_grades(player):
+            grades = _compute_scouting_grades(player)
+            if grades is None:
+                st.info(f"Not enough data to compute grades for {player}.")
+                return
+            st.markdown(f"**{player}**")
+            for tool, val in grades.items():
+                gc = _grade_color(val)
+                gl = grade_label(val)
+                st.markdown(
+                    f'<div class="grade-row">'
+                    f'<span class="grade-tool">{tool}</span>'
+                    f'<span class="grade-pill" style="background:{gc};">{val}</span>'
+                    f'<span style="color:{gc};font-weight:700;font-size:.8rem;min-width:90px;">{gl}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True)
+            ofp = round(sum(grades.values()) / len(grades))
+            gc_ofp = _grade_color(ofp)
+            st.markdown(
+                f'<div style="margin-top:10px;padding:10px;background:#1A1D2E;border-radius:8px;text-align:center;">'
+                f'<span style="color:#9BA3B8;font-size:.75rem;letter-spacing:1px;">OVERALL FUTURE POTENTIAL</span><br/>'
+                f'<span style="color:{gc_ofp};font-size:2rem;font-weight:900;">{ofp}</span>'
+                f'<span style="color:{gc_ofp};font-size:.9rem;font-weight:700;margin-left:8px;">{grade_label(ofp)}</span>'
+                f'</div>', unsafe_allow_html=True)
+
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            _render_grades(player_a)
+        with sc2:
+            _render_grades(player_b)
+
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Tool Grade Radar</div>', unsafe_allow_html=True)
+
+        sc_grades_t7 = {p: _compute_scouting_grades(p) for p in PLAYERS}
+        if any(g is not None for g in sc_grades_t7.values()):
+            tools_t7 = list(next(g for g in sc_grades_t7.values() if g is not None).keys())
+            radar_ind = [{"name": t, "max": 80, "min": 20} for t in tools_t7]
+            radar_series = []
+            for player in PLAYERS:
+                grade_data = sc_grades_t7.get(player)
+                if grade_data is None: continue
+                radar_series.append({
+                    "name": player, "type": "radar",
+                    "data": [{"value": [grade_data.get(t, 50) for t in tools_t7],
+                              "name": player,
+                              "lineStyle": {"color": COLORS[player], "width": 2},
+                              "areaStyle": {"color": COLORS[player], "opacity": 0.15},
+                              "itemStyle": {"color": COLORS[player]}}]
+                })
+            ech({
+                **_base("20-80 Tool Grades Comparison"),
+                "legend": {"bottom": 4, "textStyle": {"color": TEXT}, "data": PLAYERS},
+                "radar": {"indicator": radar_ind, "shape": "polygon",
+                          "splitLine": {"lineStyle": {"color": LINE_CLR}},
+                          "splitArea": {"areaStyle": {"color": [CARD_BG, "#1E2235"]}},
+                          "axisName": {"color": TEXT, "fontSize": 11}},
+                "series": radar_series,
+            }, height=380)
+
+        if mode == "Pitchers":
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">Pitch Arsenal from Statcast</div>',
+                        unsafe_allow_html=True)
+            sc_sel = st.selectbox("Season", sorted(sel_seasons, reverse=True), key="sc_t7")
+            for player in PLAYERS:
+                mid = p_mlbam(player)
+                if not mid: continue
+                with st.spinner(f"Loading arsenal for {player}..."):
+                    raw = get_statcast_pitcher_raw(mid, sc_sel)
+                arsenal = build_arsenal(raw) if not raw.empty else pd.DataFrame()
+                if arsenal.empty:
+                    st.info(f"No Statcast data for {player} in {sc_sel}.")
+                    continue
+                st.markdown(f"**{player} — {sc_sel} Arsenal**")
+                disp_cols = [c for c in ["pitch_name","count","Velo","AvgVelo","MaxVelo",
+                                         "SwStr_pct","InZone_pct","GB_pct"] if c in arsenal.columns]
+                st.dataframe(arsenal[disp_cols].style.format(
+                    {c: "{:.1f}" for c in disp_cols if c not in ["pitch_name","count"]}
+                ), use_container_width=True, hide_index=True)
+
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">GM Summary & Gameplan Notes</div>',
+                    unsafe_allow_html=True)
+        for bullet in _gm_bullets():
+            clean = bullet.replace("**", "")
+            st.markdown(f"- {clean}")
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
