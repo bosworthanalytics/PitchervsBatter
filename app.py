@@ -1364,7 +1364,7 @@ if app_mode == "Scouting Report":
     # ── Spray Chart — Hitters (right under rankings) ─────────────────────────────
     if mode == "Hitters" and not _sr_sc_raw.empty:
         _SC_HIT_SET = {"single","double","triple","home_run"}
-        _EV_CLR_T = {"home_run":"#C8102E","triple":"#FFD700","double":"#FFA726","single":"#00BFFF"}
+        _EV_CLR_T = {"home_run":"#C8102E","triple":"#39FF14","double":"#FFA726","single":"#00BFFF"}
         _sp_df = _sr_sc_raw[
             _sr_sc_raw["hc_x"].notna() & _sr_sc_raw["hc_y"].notna() &
             _sr_sc_raw["events"].notna()
@@ -1398,7 +1398,7 @@ if app_mode == "Scouting Report":
 <div class="leg">
   <span><span class="dot" style="background:#00BFFF"></span>1B ({_sp_n1})</span>
   <span><span class="dot" style="background:#FFA726"></span>2B ({_sp_n2})</span>
-  <span><span class="dot" style="background:#FFD700"></span>3B ({_sp_n3})</span>
+  <span><span class="dot" style="background:#39FF14"></span>3B ({_sp_n3})</span>
   <span><span class="dot" style="background:#C8102E"></span>HR ({_sp_nhr})</span>
   <span><span class="dot" style="background:#1A2E47;border:1px solid #2A3E57"></span>Out ({_sp_no})</span>
 </div>
@@ -1456,7 +1456,7 @@ hits.forEach(function(h){{
                 _dh2 += ('<div style="margin-top:14px;font-size:.6rem;font-weight:700;'
                          'color:#C8102E;letter-spacing:2px;text-transform:uppercase;'
                          'margin-bottom:10px">Hit Breakdown</div>')
-                for _et2, _ec2, _el2 in [("home_run","#C8102E","HR"),("triple","#FFD700","3B"),
+                for _et2, _ec2, _el2 in [("home_run","#C8102E","HR"),("triple","#39FF14","3B"),
                                           ("double","#FFA726","2B"),("single","#00BFFF","1B")]:
                     _ecnt2 = len(_sp_in[_sp_in["events"]==_et2])
                     if _ecnt2 == 0: continue
