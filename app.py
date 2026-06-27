@@ -241,8 +241,8 @@ st.markdown("""<style>
 [data-testid="stRadio"]:has(input[value="Player Comparison"]) label > div:first-child {
   display:none !important}
 
-/* ── Multiselect container background only — no tag overrides ── */
-[data-baseweb="select"] > div{background:#0F1E32 !important;border-color:#1A2E47 !important}
+/* ── Multiselect ── */
+[data-baseweb="select"] > div{background:#0F1E32 !important;border-color:#1A2E47 !important;padding-left:10px !important}
 
 /* ── Sidebar hidden ── */
 [data-testid="stSidebar"]{display:none}
