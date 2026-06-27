@@ -36,18 +36,19 @@ st.set_page_config(
     page_title="MLB Player Comparison | Analytics",
     page_icon="baseball",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 ALL_SEASONS   = [2023, 2024, 2025, 2026]
-PA_COL        = "#5B9BD5"   # Player A — MLB blue
-PB_COL        = "#E8002D"   # Player B — MLB red
-GOLD          = "#C8102E"   # Primary accent — MLB red
+PA_COL        = "#B0C4DE"   # Player A — light steel silver
+PB_COL        = "#00BFFF"   # Player B — electric blue
+GOLD          = "#C4A962"   # Chart reference lines — gold
 CARD_BG       = "#0F1E32"   # Dark navy card
 LINE_CLR      = "#1A2E47"   # Navy border
 TEXT          = "#F4F8FF"
 SUBTEXT       = "#8B9EC4"
+RED_ACCENT    = "#C8102E"   # UI accent — MLB red
 
 SEASON_DATES = {
     2023: ("2023-03-30", "2023-10-01"),
@@ -182,10 +183,8 @@ st.markdown("""<style>
             font-size:.78rem;color:#8B9EC4;margin:3px}
 .stat-badge strong{color:#C8102E;margin-right:4px}
 
-/* Hide Streamlit chrome */
+/* Hide Streamlit chrome (keep sidebar toggle visible) */
 #MainMenu,footer,header{visibility:hidden}
-[data-testid="collapsedControl"]{display:none !important}
-[data-testid="stSidebarCollapseButton"]{display:none !important}
 
 @media (max-width:768px){
   [data-testid="stDataFrame"] iframe{-webkit-font-smoothing:antialiased;image-rendering:-webkit-optimize-contrast}
@@ -218,10 +217,30 @@ st.markdown("""<style>
 .nav-title .red{color:#C8102E}
 .nav-title .blue{color:#5B9BD5}
 
-/* Streamlit tab styling */
-[data-baseweb="tab-list"]{background:#0F1E32 !important;border-radius:8px;padding:4px}
-[data-baseweb="tab"]{color:#8B9EC4 !important;font-weight:600 !important}
-[aria-selected="true"]{color:#F4F8FF !important;border-bottom:2px solid #C8102E !important}
+/* Streamlit tab styling — active tab uses electric blue */
+[data-baseweb="tab-list"]{background:#0F1E32 !important;border-radius:8px;padding:4px;
+                           border-bottom:2px solid #1A2E47 !important}
+[data-baseweb="tab"]{color:#8B9EC4 !important;font-weight:600 !important;font-size:.82rem !important}
+[aria-selected="true"]{color:#00BFFF !important;border-bottom:2px solid #00BFFF !important}
+
+/* Sidebar nav styling */
+[data-testid="stSidebar"]{background-color:#0A1525 !important;border-right:1px solid #1A2E47;min-width:220px}
+[data-testid="stSidebar"] .sidebar-brand{color:#F4F8FF;font-size:1.05rem;font-weight:900;
+  letter-spacing:2px;text-transform:uppercase;padding:6px 0 14px;line-height:1.3}
+[data-testid="stSidebar"] .sidebar-brand .red{color:#C8102E}
+[data-testid="stSidebar"] .sidebar-brand .blue{color:#00BFFF}
+[data-testid="stSidebar"] .sidebar-divider{border-top:1px solid #1A2E47;margin:8px 0 14px}
+/* Radio nav items */
+[data-testid="stSidebar"] [data-testid="stRadio"] > div{gap:4px}
+[data-testid="stSidebar"] [data-testid="stRadio"] label{
+  padding:10px 14px;border-radius:8px;color:#8B9EC4;
+  font-weight:600;font-size:.88rem;transition:background .15s,color .15s;
+  border:1px solid transparent}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover{
+  background:#1A2E47;color:#F4F8FF;border-color:#1A2E47}
+[data-testid="stSidebar"] [data-testid="stRadio"] label[data-checked="true"],
+[data-testid="stSidebar"] [data-testid="stRadio"] input:checked ~ div{
+  background:#0F2540;color:#00BFFF !important;border-color:#00BFFF}
 
 /* Streamlit metric overrides */
 [data-testid="stMetric"]{background:#0F1E32;border-radius:10px;padding:12px 16px;
@@ -735,10 +754,35 @@ def build_arsenal(sc):
     return agg.sort_values("Usage%", ascending=False)
 
 # ── App Navigation ─────────────────────────────────────────────────────────────
-st.markdown('<div class="nav-banner"><span class="nav-title">⚾ <span class="red">BOSWORTH</span> <span class="blue">ANALYTICS</span> · MLB DASHBOARD</span></div>',
-            unsafe_allow_html=True)
-app_mode = st.radio("", ["Player Comparison", "Team Comparison", "AI Chat"],
-                    horizontal=True, key="top_app_mode", label_visibility="collapsed")
+with st.sidebar:
+    st.markdown(
+        '<div class="sidebar-brand">⚾ <span class="red">BOSWORTH</span><br>'
+        '<span class="blue">ANALYTICS</span></div>'
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
+    app_mode = st.radio(
+        "Navigation",
+        ["⚾  Player Comparison", "📊  Team Comparison", "🤖  AI Chat"],
+        key="top_app_mode",
+        label_visibility="collapsed",
+    )
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="color:#8B9EC4;font-size:.72rem;text-transform:uppercase;'
+        'letter-spacing:1.5px;padding:4px 0">MLB Analytics Dashboard</div>',
+        unsafe_allow_html=True,
+    )
+# Normalize mode name (strip emoji prefix)
+app_mode = app_mode.split("  ", 1)[-1]
+
+st.markdown(
+    '<div class="nav-banner">'
+    '<span class="nav-title">⚾ <span class="red">BOSWORTH</span> '
+    '<span class="blue">ANALYTICS</span> · MLB DASHBOARD</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEAM COMPARISON MODE
