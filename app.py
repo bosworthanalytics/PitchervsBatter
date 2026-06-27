@@ -1482,84 +1482,62 @@ hits.forEach(function(h){{
                 _dh2 += '</div>'
                 st.markdown(_dh2, unsafe_allow_html=True)
 
-    # ── Bat Speed & Swing Profile (Hitters — 2024+ Statcast) ─────────────────────
+    # ── Swing Profile — Bat Angle (Hitters — 2024+ Statcast) ─────────────────────
     if mode == "Hitters":
-        st.markdown('<div class="section-header">Bat Speed & Swing Profile</div>', unsafe_allow_html=True)
-        _bs_has_data = (not _sr_sc_raw.empty and "bat_speed" in _sr_sc_raw.columns)
-        if _bs_has_data:
-            _bs_raw = _sr_sc_raw[_sr_sc_raw["bat_speed"].notna()].copy()
-            if "pitch_type" in _bs_raw.columns:
-                _bs_raw = _bs_raw[_bs_raw["pitch_type"].notna() & (_bs_raw["pitch_type"].str.strip() != "")]
+        st.markdown('<div class="section-header">Swing Profile — Bat Angle</div>', unsafe_allow_html=True)
+        _ba_has_data = (not _sr_sc_raw.empty and "attack_angle" in _sr_sc_raw.columns
+                        and _sr_sc_raw["attack_angle"].notna().any())
+        if _ba_has_data:
+            _ba_raw = _sr_sc_raw[_sr_sc_raw["attack_angle"].notna()].copy()
+            if "pitch_type" in _ba_raw.columns:
+                _ba_raw = _ba_raw[_ba_raw["pitch_type"].notna() & (_ba_raw["pitch_type"].str.strip() != "")]
         else:
-            _bs_raw = pd.DataFrame()
-        if not _bs_raw.empty:
+            _ba_raw = pd.DataFrame()
+        if not _ba_raw.empty:
             _PT_CLR_B = ["#C8102E","#00BFFF","#C4A962","#2ecc71","#8B9EC4","#FFA726","#EF5350","#FF69B4"]
-            _bs_agg = (_bs_raw.groupby("pitch_type")
-                       .agg(n=("bat_speed","count"), bat_speed=("bat_speed","mean"))
+            _ba_overall = round(float(_ba_raw["attack_angle"].mean()), 1)
+            _ba_agg = (_ba_raw.groupby("pitch_type")
+                       .agg(n=("attack_angle","count"), ba=("attack_angle","mean"))
                        .reset_index())
-            if "swing_length" in _bs_raw.columns:
-                _sl_tmp = _bs_raw.groupby("pitch_type")["swing_length"].mean().reset_index()
-                _bs_agg = _bs_agg.merge(_sl_tmp, on="pitch_type", how="left")
-            _bs_agg = _bs_agg[_bs_agg["n"] >= 10].copy()
-            _bs_agg["pname"] = _bs_agg["pitch_type"].map(PITCH_NAMES).fillna(_bs_agg["pitch_type"])
-            _bs_c1, _bs_c2 = st.columns(2)
-            with _bs_c1:
-                _bss = _bs_agg.sort_values("bat_speed", ascending=True).reset_index(drop=True)
+            _ba_agg = _ba_agg[_ba_agg["n"] >= 10].copy()
+            _ba_agg["pname"] = _ba_agg["pitch_type"].map(PITCH_NAMES).fillna(_ba_agg["pitch_type"])
+            _ba_c1, _ba_c2 = st.columns([2, 3])
+            with _ba_c1:
+                st.markdown(
+                    f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-radius:12px;'
+                    f'padding:40px 24px;text-align:center;margin-top:8px">'
+                    f'<div style="font-size:.62rem;color:#C8102E;font-weight:700;letter-spacing:2px;'
+                    f'text-transform:uppercase;margin-bottom:10px">Average Bat Angle</div>'
+                    f'<div style="font-size:3.2rem;font-weight:900;color:#F4F8FF;font-family:monospace">'
+                    f'{_ba_overall}°</div>'
+                    f'<div style="font-size:.78rem;color:#8B9EC4;margin-top:6px">attack angle at contact</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with _ba_c2:
+                _bas = _ba_agg.sort_values("ba", ascending=True).reset_index(drop=True)
                 ech({
-                    **_base("Avg Bat Speed by Pitch Type (mph)"),
+                    **_base("Avg Bat Angle by Pitch Type (°)"),
                     "legend":{"show":False},
                     "grid":{"left":"30%","right":"16%","top":"14%","bottom":"8%"},
-                    "xAxis":{"type":"value","axisLabel":{"color":SUBTEXT,"fontSize":9},
+                    "xAxis":{"type":"value","axisLabel":{"color":SUBTEXT,"fontSize":9,"formatter":"{value}°"},
                              "splitLine":{"lineStyle":{"color":LINE_CLR}},
                              "axisLine":{"lineStyle":{"color":LINE_CLR}}},
-                    "yAxis":{"type":"category","data":_bss["pname"].tolist(),
+                    "yAxis":{"type":"category","data":_bas["pname"].tolist(),
                              "axisLabel":{"color":TEXT,"fontSize":10},
                              "axisLine":{"lineStyle":{"color":LINE_CLR}}},
                     "series":[{"type":"bar","barMaxWidth":26,
-                               "data":[{"value":round(float(_bss.iloc[_bi]["bat_speed"]),1),
+                               "data":[{"value":round(float(_bas.iloc[_bi]["ba"]),1),
                                         "itemStyle":{"color":_PT_CLR_B[_bi%len(_PT_CLR_B)],"borderRadius":[0,4,4,0]},
                                         "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
-                                                 "formatter":f"{round(float(_bss.iloc[_bi]['bat_speed']),1)} mph"}}
-                                       for _bi in range(len(_bss))]}],
+                                                 "formatter":f"{round(float(_bas.iloc[_bi]['ba']),1)}°"}}
+                                       for _bi in range(len(_bas))]}],
                 }, height=300)
-            with _bs_c2:
-                if "swing_length" in _bs_agg.columns and _bs_agg["swing_length"].notna().any():
-                    _sls = _bs_agg.sort_values("swing_length", ascending=True).reset_index(drop=True)
-                    ech({
-                        **_base("Avg Swing Length by Pitch Type (ft)"),
-                        "legend":{"show":False},
-                        "grid":{"left":"30%","right":"16%","top":"14%","bottom":"8%"},
-                        "xAxis":{"type":"value","axisLabel":{"color":SUBTEXT,"fontSize":9},
-                                 "splitLine":{"lineStyle":{"color":LINE_CLR}},
-                                 "axisLine":{"lineStyle":{"color":LINE_CLR}}},
-                        "yAxis":{"type":"category","data":_sls["pname"].tolist(),
-                                 "axisLabel":{"color":TEXT,"fontSize":10},
-                                 "axisLine":{"lineStyle":{"color":LINE_CLR}}},
-                        "series":[{"type":"bar","barMaxWidth":26,
-                                   "data":[{"value":round(float(_sls.iloc[_sli]["swing_length"]),2),
-                                            "itemStyle":{"color":_PT_CLR_B[_sli%len(_PT_CLR_B)],"borderRadius":[0,4,4,0]},
-                                            "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
-                                                     "formatter":f"{round(float(_sls.iloc[_sli]['swing_length']),2)} ft"}}
-                                           for _sli in range(len(_sls))]}],
-                    }, height=300)
-                else:
-                    _bs_overall = round(float(_bs_raw["bat_speed"].mean()), 1)
-                    st.markdown(
-                        f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-radius:12px;'
-                        f'padding:36px;text-align:center;margin-top:8px">'
-                        f'<div style="font-size:.62rem;color:#C8102E;font-weight:700;letter-spacing:2px;'
-                        f'text-transform:uppercase;margin-bottom:10px">Overall Avg Bat Speed</div>'
-                        f'<div style="font-size:3rem;font-weight:900;color:#F4F8FF;font-family:monospace">'
-                        f'{_bs_overall}</div>'
-                        f'<div style="font-size:.8rem;color:#8B9EC4;margin-top:6px">mph</div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
         else:
             st.markdown(
                 '<div style="background:#0F1E32;border:1px solid #1A2E47;border-radius:10px;'
                 'padding:18px;color:#8B9EC4;font-size:.85rem;text-align:center;margin-bottom:16px">'
-                'Bat speed data is available for 2024+ seasons. Select 2024 or later to view.</div>',
+                'Bat angle (attack angle) data is available for 2024+ seasons. Select 2024 or later to view.</div>',
                 unsafe_allow_html=True
             )
 
@@ -1669,7 +1647,8 @@ hits.forEach(function(h){{
         if not _mov_raw.empty:
                 _PT_CLR = ["#C8102E","#00BFFF","#C4A962","#2ecc71","#8B9EC4","#FFA726","#EF5350","#FF69B4"]
                 _mov_raw = _mov_raw.copy()
-                _mov_raw["hbreak"] = _mov_raw["pfx_x"] * 12
+                # pitcher's POV — flip horizontal break (pfx_x is catcher's view)
+                _mov_raw["hbreak"] = _mov_raw["pfx_x"] * -12
                 _mov_raw["vbreak"] = _mov_raw["pfx_z"] * 12
                 _mov_agg = (_mov_raw.groupby("pitch_type")
                             .agg(hbreak=("hbreak","mean"), vbreak=("vbreak","mean"), n=("pitch_type","count"))
@@ -1691,7 +1670,7 @@ hits.forEach(function(h){{
                                       "formatter": _mrw.pname, "fontSize": 9, "color": TEXT},
                         })
                     ech({
-                        **_base("Ball Movement — catcher's view (in.)"),
+                        **_base("Ball Movement — pitcher's view (in.)"),
                         "legend": {"show": False},
                         "grid": {"left":"10%","right":"5%","top":"16%","bottom":"14%"},
                         "xAxis": {
@@ -1721,40 +1700,52 @@ hits.forEach(function(h){{
                         _hand = "R"
                         if "p_throws" in _mov_raw.columns and not _mov_raw["p_throws"].dropna().empty:
                             _hand = _mov_raw["p_throws"].dropna().mode()[0]
-                        _arm_grp = (_mov_raw.groupby("pitch_type")
-                                    .agg(rx=("release_pos_x","mean"), rz=("release_pos_z","mean"))
-                                    .reset_index())
-                        _arm_grp["angle"] = np.degrees(np.arctan2(
-                            _arm_grp["rz"],
-                            np.where(_hand == "R", -_arm_grp["rx"], _arm_grp["rx"])
-                        ))
+                        _arm_aggs = {"rx": ("release_pos_x","mean"),
+                                     "rz": ("release_pos_z","mean"),
+                                     "n":  ("pitch_type","count")}
+                        if "arm_angle" in _mov_raw.columns:
+                            _arm_aggs["aa"] = ("arm_angle","mean")
+                        _arm_grp = _mov_raw.groupby("pitch_type").agg(**_arm_aggs).reset_index()
+                        # pitcher's POV — flip horizontal release (release_pos_x is catcher's view)
+                        _arm_grp["relx"] = -_arm_grp["rx"]
                         _arm_grp["pname"] = _arm_grp["pitch_type"].map(PITCH_NAMES).fillna(_arm_grp["pitch_type"])
-                        _arm_grp = _arm_grp.sort_values("angle", ascending=True).reset_index(drop=True)
+                        _arm_series = []
+                        for _ai, _arw in enumerate(_arm_grp.itertuples(index=False)):
+                            _ac = _PT_CLR[_ai % len(_PT_CLR)]
+                            _asz = max(14, min(46, int(_arw.n / 15)))
+                            _alab = (f"{_arw.pname} · {round(float(_arw.aa),0):.0f}°"
+                                     if "aa" in _arm_grp.columns else _arw.pname)
+                            _arm_series.append({
+                                "name": _arw.pname, "type": "scatter",
+                                "data": [[round(float(_arw.relx),2), round(float(_arw.rz),2)]],
+                                "symbolSize": _asz, "itemStyle": {"color": _ac},
+                                "label": {"show": True, "position": "top",
+                                          "formatter": _alab, "fontSize": 9, "color": TEXT},
+                            })
                         ech({
-                            **_base(f"Arm Slot by Pitch ({_hand}HP — 0°=Sidearm  90°=Overhand)"),
+                            **_base(f"Release Point by Pitch ({_hand}HP — pitcher's view, ft)"),
                             "legend": {"show": False},
-                            "grid": {"left":"30%","right":"16%","top":"16%","bottom":"8%"},
+                            "grid": {"left":"12%","right":"8%","top":"16%","bottom":"14%"},
                             "xAxis": {
-                                "type":"value","min":0,"max":90,
-                                "axisLabel":{"color":SUBTEXT,"fontSize":9,"formatter":"{value}°"},
+                                "type":"value","name":"Horiz. Release (ft)",
+                                "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
+                                "nameLocation":"center","nameGap":22,
+                                "axisLabel":{"color":SUBTEXT,"fontSize":9},
                                 "splitLine":{"lineStyle":{"color":LINE_CLR}},
                                 "axisLine":{"lineStyle":{"color":LINE_CLR}},
                             },
                             "yAxis": {
-                                "type":"category",
-                                "data":_arm_grp["pname"].tolist(),
-                                "axisLabel":{"color":TEXT,"fontSize":10},
+                                "type":"value","name":"Release Height (ft)",
+                                "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
+                                "axisLabel":{"color":SUBTEXT,"fontSize":9},
+                                "splitLine":{"lineStyle":{"color":LINE_CLR}},
                                 "axisLine":{"lineStyle":{"color":LINE_CLR}},
                             },
-                            "series": [{
-                                "type":"bar","barMaxWidth":26,
-                                "data":[
-                                    {"value": round(float(_arm_grp.iloc[_ai]["angle"]),1),
-                                     "itemStyle":{"color":_PT_CLR[_ai%len(_PT_CLR)],"borderRadius":[0,4,4,0]},
-                                     "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
-                                              "formatter":f"{round(float(_arm_grp.iloc[_ai]['angle']),1)}°"}}
-                                    for _ai in range(len(_arm_grp))
-                                ],
+                            "series": _arm_series + [{
+                                "type":"scatter","data":[],"silent":True,
+                                "markLine":{"silent":True,"symbol":"none",
+                                            "lineStyle":{"color":SUBTEXT,"type":"dashed","width":1},
+                                            "data":[{"xAxis":0}],"label":{"show":False}},
                             }],
                         }, height=330)
         else:
