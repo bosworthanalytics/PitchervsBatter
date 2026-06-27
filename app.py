@@ -698,6 +698,19 @@ def get_monthly_pitching_api(mlbam_id, season):
     agg["BB/9"] = (agg["BB"]/agg["IP"]*9).where(agg["IP"]>0).round(1)
     return agg.sort_values("Month_Num")
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_player_awards(mlbam_id):
+    if not mlbam_id:
+        return []
+    try:
+        r = requests.get(
+            f"https://statsapi.mlb.com/api/v1/people/{mlbam_id}?hydrate=awards",
+            timeout=10
+        )
+        return r.json().get("people", [{}])[0].get("awards", [])
+    except Exception:
+        return []
+
 def agg_statcast_hit_monthly(sc):
     if sc.empty: return pd.DataFrame()
     rows = []
@@ -1364,7 +1377,7 @@ if app_mode == "Scouting Report":
     # ── Spray Chart — Hitters (right under rankings) ─────────────────────────────
     if mode == "Hitters" and not _sr_sc_raw.empty:
         _SC_HIT_SET = {"single","double","triple","home_run"}
-        _EV_CLR_T = {"home_run":"#C8102E","triple":"#39FF14","double":"#FFA726","single":"#00BFFF"}
+        _EV_CLR_T = {"home_run":"#C8102E","triple":"#FFD700","double":"#FFA726","single":"#00BFFF"}
         _sp_df = _sr_sc_raw[
             _sr_sc_raw["hc_x"].notna() & _sr_sc_raw["hc_y"].notna() &
             _sr_sc_raw["events"].notna()
@@ -1398,7 +1411,7 @@ if app_mode == "Scouting Report":
 <div class="leg">
   <span><span class="dot" style="background:#00BFFF"></span>1B ({_sp_n1})</span>
   <span><span class="dot" style="background:#FFA726"></span>2B ({_sp_n2})</span>
-  <span><span class="dot" style="background:#39FF14"></span>3B ({_sp_n3})</span>
+  <span><span class="dot" style="background:#FFD700"></span>3B ({_sp_n3})</span>
   <span><span class="dot" style="background:#C8102E"></span>HR ({_sp_nhr})</span>
   <span><span class="dot" style="background:#1A2E47;border:1px solid #2A3E57"></span>Out ({_sp_no})</span>
 </div>
@@ -1456,7 +1469,7 @@ hits.forEach(function(h){{
                 _dh2 += ('<div style="margin-top:14px;font-size:.6rem;font-weight:700;'
                          'color:#C8102E;letter-spacing:2px;text-transform:uppercase;'
                          'margin-bottom:10px">Hit Breakdown</div>')
-                for _et2, _ec2, _el2 in [("home_run","#C8102E","HR"),("triple","#39FF14","3B"),
+                for _et2, _ec2, _el2 in [("home_run","#C8102E","HR"),("triple","#FFD700","3B"),
                                           ("double","#FFA726","2B"),("single","#00BFFF","1B")]:
                     _ecnt2 = len(_sp_in[_sp_in["events"]==_et2])
                     if _ecnt2 == 0: continue
@@ -1468,6 +1481,76 @@ hits.forEach(function(h){{
                              f'{_ecnt2}</span></div>')
                 _dh2 += '</div>'
                 st.markdown(_dh2, unsafe_allow_html=True)
+
+    # ── Bat Speed & Swing Profile (Hitters — 2024+ Statcast) ─────────────────────
+    if mode == "Hitters" and not _sr_sc_raw.empty and "bat_speed" in _sr_sc_raw.columns:
+        _bs_raw = _sr_sc_raw[_sr_sc_raw["bat_speed"].notna()].copy()
+        if "pitch_type" in _bs_raw.columns:
+            _bs_raw = _bs_raw[_bs_raw["pitch_type"].notna() & (_bs_raw["pitch_type"].str.strip() != "")]
+        if not _bs_raw.empty:
+            st.markdown('<div class="section-header">Bat Speed & Swing Profile</div>', unsafe_allow_html=True)
+            _PT_CLR_B = ["#C8102E","#00BFFF","#C4A962","#2ecc71","#8B9EC4","#FFA726","#EF5350","#FF69B4"]
+            _bs_agg = (_bs_raw.groupby("pitch_type")
+                       .agg(n=("bat_speed","count"), bat_speed=("bat_speed","mean"))
+                       .reset_index())
+            if "swing_length" in _bs_raw.columns:
+                _sl_tmp = _bs_raw.groupby("pitch_type")["swing_length"].mean().reset_index()
+                _bs_agg = _bs_agg.merge(_sl_tmp, on="pitch_type", how="left")
+            _bs_agg = _bs_agg[_bs_agg["n"] >= 10].copy()
+            _bs_agg["pname"] = _bs_agg["pitch_type"].map(PITCH_NAMES).fillna(_bs_agg["pitch_type"])
+            _bs_c1, _bs_c2 = st.columns(2)
+            with _bs_c1:
+                _bss = _bs_agg.sort_values("bat_speed", ascending=True).reset_index(drop=True)
+                ech({
+                    **_base("Avg Bat Speed by Pitch Type (mph)"),
+                    "legend":{"show":False},
+                    "grid":{"left":"30%","right":"16%","top":"14%","bottom":"8%"},
+                    "xAxis":{"type":"value","axisLabel":{"color":SUBTEXT,"fontSize":9},
+                             "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                             "axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                    "yAxis":{"type":"category","data":_bss["pname"].tolist(),
+                             "axisLabel":{"color":TEXT,"fontSize":10},
+                             "axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                    "series":[{"type":"bar","barMaxWidth":26,
+                               "data":[{"value":round(float(_bss.iloc[_bi]["bat_speed"]),1),
+                                        "itemStyle":{"color":_PT_CLR_B[_bi%len(_PT_CLR_B)],"borderRadius":[0,4,4,0]},
+                                        "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
+                                                 "formatter":f"{round(float(_bss.iloc[_bi]['bat_speed']),1)} mph"}}
+                                       for _bi in range(len(_bss))]}],
+                }, height=300)
+            with _bs_c2:
+                if "swing_length" in _bs_agg.columns and _bs_agg["swing_length"].notna().any():
+                    _sls = _bs_agg.sort_values("swing_length", ascending=True).reset_index(drop=True)
+                    ech({
+                        **_base("Avg Swing Length by Pitch Type (ft)"),
+                        "legend":{"show":False},
+                        "grid":{"left":"30%","right":"16%","top":"14%","bottom":"8%"},
+                        "xAxis":{"type":"value","axisLabel":{"color":SUBTEXT,"fontSize":9},
+                                 "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                                 "axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                        "yAxis":{"type":"category","data":_sls["pname"].tolist(),
+                                 "axisLabel":{"color":TEXT,"fontSize":10},
+                                 "axisLine":{"lineStyle":{"color":LINE_CLR}}},
+                        "series":[{"type":"bar","barMaxWidth":26,
+                                   "data":[{"value":round(float(_sls.iloc[_sli]["swing_length"]),2),
+                                            "itemStyle":{"color":_PT_CLR_B[_sli%len(_PT_CLR_B)],"borderRadius":[0,4,4,0]},
+                                            "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
+                                                     "formatter":f"{round(float(_sls.iloc[_sli]['swing_length']),2)} ft"}}
+                                           for _sli in range(len(_sls))]}],
+                    }, height=300)
+                else:
+                    _bs_overall = round(float(_bs_raw["bat_speed"].mean()), 1)
+                    st.markdown(
+                        f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-radius:12px;'
+                        f'padding:36px;text-align:center;margin-top:8px">'
+                        f'<div style="font-size:.62rem;color:#C8102E;font-weight:700;letter-spacing:2px;'
+                        f'text-transform:uppercase;margin-bottom:10px">Overall Avg Bat Speed</div>'
+                        f'<div style="font-size:3rem;font-weight:900;color:#F4F8FF;font-family:monospace">'
+                        f'{_bs_overall}</div>'
+                        f'<div style="font-size:.8rem;color:#8B9EC4;margin-top:6px">mph</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
 
     # ── Tool Grades + OFP ────────────────────────────────────────────────────────
     if grades:
@@ -1557,6 +1640,109 @@ hits.forEach(function(h){{
                             f'{_ar.get("EV", 0):.1f}',
                         ])
                     st.markdown(_stat_table_html(_a_rows, _a_heads), unsafe_allow_html=True)
+
+    # ── Pitch Movement + Arm Slot (Pitchers only) ────────────────────────────────
+    if mode == "Pitchers" and not _sr_sc_raw.empty:
+        _mov_need = ["pitch_type", "pfx_x", "pfx_z"]
+        if all(c in _sr_sc_raw.columns for c in _mov_need):
+            _mov_raw = _sr_sc_raw[
+                _mov_need + [c for c in ["release_pos_x","release_pos_z","p_throws"]
+                             if c in _sr_sc_raw.columns]
+            ].dropna(subset=_mov_need).copy()
+            _mov_raw = _mov_raw[_mov_raw["pitch_type"].str.strip() != ""]
+            if not _mov_raw.empty:
+                st.markdown('<div class="section-header">Pitch Movement & Arm Slot</div>', unsafe_allow_html=True)
+                _PT_CLR = ["#C8102E","#00BFFF","#C4A962","#2ecc71","#8B9EC4","#FFA726","#EF5350","#FF69B4"]
+                _mov_raw = _mov_raw.copy()
+                _mov_raw["hbreak"] = _mov_raw["pfx_x"] * 12
+                _mov_raw["vbreak"] = _mov_raw["pfx_z"] * 12
+                _mov_agg = (_mov_raw.groupby("pitch_type")
+                            .agg(hbreak=("hbreak","mean"), vbreak=("vbreak","mean"), n=("pitch_type","count"))
+                            .reset_index())
+                _mov_agg["pname"] = _mov_agg["pitch_type"].map(PITCH_NAMES).fillna(_mov_agg["pitch_type"])
+                _mov_c1, _mov_c2 = st.columns(2)
+                with _mov_c1:
+                    _mov_series = []
+                    for _mi, _mrw in enumerate(_mov_agg.itertuples(index=False)):
+                        _mc = _PT_CLR[_mi % len(_PT_CLR)]
+                        _msz = max(14, min(48, int(_mrw.n / 15)))
+                        _mov_series.append({
+                            "name": _mrw.pname,
+                            "type": "scatter",
+                            "data": [[round(float(_mrw.hbreak),1), round(float(_mrw.vbreak),1)]],
+                            "symbolSize": _msz,
+                            "itemStyle": {"color": _mc},
+                            "label": {"show": True, "position": "top",
+                                      "formatter": _mrw.pname, "fontSize": 9, "color": TEXT},
+                        })
+                    ech({
+                        **_base("Ball Movement — catcher's view (in.)"),
+                        "legend": {"show": False},
+                        "grid": {"left":"10%","right":"5%","top":"16%","bottom":"14%"},
+                        "xAxis": {
+                            "type":"value","name":"Horizontal Break (in.)",
+                            "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
+                            "nameLocation":"center","nameGap":22,
+                            "axisLabel":{"color":SUBTEXT,"fontSize":9},
+                            "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                            "axisLine":{"lineStyle":{"color":LINE_CLR}},
+                            "markLine":{"silent":True,"symbol":"none",
+                                        "lineStyle":{"color":SUBTEXT,"type":"dashed","width":1},
+                                        "data":[{"xAxis":0}],"label":{"show":False}},
+                        },
+                        "yAxis": {
+                            "type":"value","name":"Vert. Break (in.)",
+                            "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
+                            "axisLabel":{"color":SUBTEXT,"fontSize":9},
+                            "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                            "axisLine":{"lineStyle":{"color":LINE_CLR}},
+                            "markLine":{"silent":True,"symbol":"none",
+                                        "lineStyle":{"color":SUBTEXT,"type":"dashed","width":1},
+                                        "data":[{"yAxis":0}],"label":{"show":False}},
+                        },
+                        "series": _mov_series,
+                    }, height=330)
+                with _mov_c2:
+                    if "release_pos_x" in _mov_raw.columns and "release_pos_z" in _mov_raw.columns:
+                        _hand = "R"
+                        if "p_throws" in _mov_raw.columns and not _mov_raw["p_throws"].dropna().empty:
+                            _hand = _mov_raw["p_throws"].dropna().mode()[0]
+                        _arm_grp = (_mov_raw.groupby("pitch_type")
+                                    .agg(rx=("release_pos_x","mean"), rz=("release_pos_z","mean"))
+                                    .reset_index())
+                        _arm_grp["angle"] = np.degrees(np.arctan2(
+                            _arm_grp["rz"],
+                            np.where(_hand == "R", -_arm_grp["rx"], _arm_grp["rx"])
+                        ))
+                        _arm_grp["pname"] = _arm_grp["pitch_type"].map(PITCH_NAMES).fillna(_arm_grp["pitch_type"])
+                        _arm_grp = _arm_grp.sort_values("angle", ascending=True).reset_index(drop=True)
+                        ech({
+                            **_base(f"Arm Slot by Pitch ({_hand}HP — 0°=Sidearm  90°=Overhand)"),
+                            "legend": {"show": False},
+                            "grid": {"left":"30%","right":"16%","top":"16%","bottom":"8%"},
+                            "xAxis": {
+                                "type":"value","min":0,"max":90,
+                                "axisLabel":{"color":SUBTEXT,"fontSize":9,"formatter":"{value}°"},
+                                "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                                "axisLine":{"lineStyle":{"color":LINE_CLR}},
+                            },
+                            "yAxis": {
+                                "type":"category",
+                                "data":_arm_grp["pname"].tolist(),
+                                "axisLabel":{"color":TEXT,"fontSize":10},
+                                "axisLine":{"lineStyle":{"color":LINE_CLR}},
+                            },
+                            "series": [{
+                                "type":"bar","barMaxWidth":26,
+                                "data":[
+                                    {"value": round(float(_arm_grp.iloc[_ai]["angle"]),1),
+                                     "itemStyle":{"color":_PT_CLR[_ai%len(_PT_CLR)],"borderRadius":[0,4,4,0]},
+                                     "label":{"show":True,"position":"right","color":TEXT,"fontSize":9,
+                                              "formatter":f"{round(float(_arm_grp.iloc[_ai]['angle']),1)}°"}}
+                                    for _ai in range(len(_arm_grp))
+                                ],
+                            }],
+                        }, height=330)
 
     # ── Season Stats Table ───────────────────────────────────────────────────────
     st.markdown('<div class="section-header">Season Stats</div>', unsafe_allow_html=True)
@@ -1868,12 +2054,37 @@ for col_w, player in zip([hcols[0], hcols[2]], PLAYERS):
     img_tag = (f'<img src="{hs_url}" width="95" '
                f'style="border-radius:50%;border:3px solid {color};" '
                f'onerror="this.style.display=\'none\'"/>') if hs_url else ""
+    _aw_raw = get_player_awards(mlbam)
+    _aw_map = {
+        "ALMVP":("MVP","#C4A962"),"NLMVP":("MVP","#C4A962"),
+        "ALCY":("Cy Young","#00BFFF"),"NLCY":("Cy Young","#00BFFF"),
+        "ALGG":("Gold Glove","#2ecc71"),"NLGG":("Gold Glove","#2ecc71"),
+        "ALSS":("Silver Slugger","#B0C4DE"),"NLSS":("Silver Slugger","#B0C4DE"),
+        "ALROY":("Rookie of Year","#FFA726"),"NLROY":("Rookie of Year","#FFA726"),
+        "ALMVP_RT":("MVP","#C4A962"),"NLMVP_RT":("MVP","#C4A962"),
+    }
+    _aw_counts = {}
+    for _aw in _aw_raw:
+        _aid = _aw.get("id","")
+        if _aid in _aw_map:
+            _al, _ac = _aw_map[_aid]
+            _aw_counts[_al] = (_aw_counts.get(_al,(0,_ac))[0]+1, _ac)
+    _awards_html = ""
+    if _aw_counts:
+        _awards_html = '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:10px">'
+        for _al, (_acnt, _ac) in _aw_counts.items():
+            _px = f"{_acnt}x " if _acnt > 1 else ""
+            _awards_html += (f'<div style="background:rgba(0,0,0,0.35);border:1px solid {_ac};'
+                             f'border-radius:12px;padding:3px 10px;font-size:.63rem;font-weight:700;'
+                             f'color:{_ac};white-space:nowrap">{_px}{_al}</div>')
+        _awards_html += '</div>'
     with col_w:
         st.markdown(f"""
         <div class="player-card" style="border-top-color:{color}">
           {img_tag}
           <div class="player-name">{player}</div>
           <div class="player-team">{team}</div>
+          {_awards_html}
         </div>""", unsafe_allow_html=True)
 
 # MLBAM IDs come directly from MLB Stats API — no reverse lookup needed
