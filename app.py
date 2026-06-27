@@ -41,13 +41,13 @@ st.set_page_config(
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 ALL_SEASONS   = [2023, 2024, 2025, 2026]
-PA_COL        = "#B0C4DE"   # Player A — light steel silver
-PB_COL        = "#00BFFF"   # Player B — deep sky / electric blue
-GOLD          = "#C4A962"
-CARD_BG       = "#1A1D2E"
-LINE_CLR      = "#2D3250"
-TEXT          = "#FAFAFA"
-SUBTEXT       = "#9BA3B8"
+PA_COL        = "#5B9BD5"   # Player A — MLB blue
+PB_COL        = "#E8002D"   # Player B — MLB red
+GOLD          = "#C8102E"   # Primary accent — MLB red
+CARD_BG       = "#0F1E32"   # Dark navy card
+LINE_CLR      = "#1A2E47"   # Navy border
+TEXT          = "#F4F8FF"
+SUBTEXT       = "#8B9EC4"
 
 SEASON_DATES = {
     2023: ("2023-03-30", "2023-10-01"),
@@ -147,40 +147,180 @@ def _base(title):
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""<style>
-.stApp{background-color:#0E1117}
-[data-testid="stSidebar"]{background-color:#1A1D2E;border-right:1px solid #2D3250}
-.player-card{background:#1A1D2E;border-radius:12px;padding:18px;text-align:center;
-             border-top:4px solid;margin-bottom:12px}
-.player-name{font-size:1.3rem;font-weight:700;color:#FAFAFA;margin:8px 0 2px}
-.player-team{font-size:.85rem;color:#9BA3B8}
-.section-header{font-size:.9rem;font-weight:600;color:#C4A962;text-transform:uppercase;
-                letter-spacing:1.5px;border-bottom:1px solid #2D3250;
-                padding-bottom:5px;margin:14px 0 10px}
-.divider{border-top:1px solid #2D3250;margin:16px 0}
-.info-box{padding:10px 14px;background:#1A1D2E;border-radius:8px;
-          border-left:3px solid #C4A962;font-size:.8rem;color:#9BA3B8;margin-top:6px}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+*{font-family:'Inter',sans-serif}
+.stApp{background-color:#07111F}
+[data-testid="stSidebar"]{background-color:#0F1E32;border-right:1px solid #1A2E47}
+
+/* Player cards */
+.player-card{background:#0F1E32;border-radius:14px;padding:20px;text-align:center;
+             border-top:4px solid;margin-bottom:14px;
+             box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+.player-name{font-size:1.3rem;font-weight:800;color:#F4F8FF;margin:8px 0 2px;letter-spacing:.5px}
+.player-team{font-size:.85rem;color:#8B9EC4;font-weight:500}
+
+/* Section headers — Hoopology left-border style */
+.section-header{font-size:.82rem;font-weight:800;color:#F4F8FF;text-transform:uppercase;
+                letter-spacing:2px;border-left:3px solid #C8102E;
+                padding-left:10px;margin:18px 0 12px;line-height:1.4}
+.divider{border-top:1px solid #1A2E47;margin:16px 0}
+.info-box{padding:10px 14px;background:#0F1E32;border-radius:8px;
+          border-left:3px solid #C8102E;font-size:.8rem;color:#8B9EC4;margin-top:6px}
+
+/* Tool cards (feature overview cards) */
+.tool-card{background:#0F1E32;border:1px solid #1A2E47;border-radius:12px;
+           padding:18px;margin:6px 0;transition:border-color .2s,box-shadow .2s}
+.tool-card:hover{border-color:#C8102E;box-shadow:0 2px 16px rgba(200,16,46,0.15)}
+.tool-card-title{font-size:.95rem;font-weight:800;color:#F4F8FF;text-transform:uppercase;
+                 letter-spacing:1px;margin-bottom:6px}
+.tool-card-desc{font-size:.8rem;color:#8B9EC4;line-height:1.5}
+
+/* Stat badge pills */
+.stat-badge{display:inline-flex;align-items:center;background:#0F1E32;
+            border:1px solid #1A2E47;border-radius:20px;padding:4px 14px;
+            font-size:.78rem;color:#8B9EC4;margin:3px}
+.stat-badge strong{color:#C8102E;margin-right:4px}
+
+/* Hide Streamlit chrome */
 #MainMenu,footer,header{visibility:hidden}
 [data-testid="collapsedControl"]{display:none !important}
 [data-testid="stSidebarCollapseButton"]{display:none !important}
+
 @media (max-width:768px){
   [data-testid="stDataFrame"] iframe{-webkit-font-smoothing:antialiased;image-rendering:-webkit-optimize-contrast}
   [data-testid="stDataFrame"]>div{-webkit-overflow-scrolling:touch}
 }
+
+/* Grade pills */
 .grade-pill{display:inline-block;padding:3px 10px;border-radius:12px;
             font-weight:700;font-size:.85rem;color:#fff;margin:2px 0}
 .grade-row{display:flex;align-items:center;gap:12px;padding:7px 10px;
-           border-bottom:1px solid #2D3250}
-.grade-tool{color:#FAFAFA;font-weight:600;min-width:130px;font-size:.88rem}
-.grade-note{color:#9BA3B8;font-size:.78rem;flex:1}
-.chat-msg-user{background:#1A1D2E;border-radius:12px 12px 4px 12px;
-               padding:10px 14px;margin:6px 0;color:#FAFAFA;font-size:.9rem}
-.chat-msg-bot{background:#2D3250;border-radius:12px 12px 12px 4px;
-              padding:10px 14px;margin:6px 0;color:#FAFAFA;font-size:.9rem}
-.nav-banner{background:#1A1D2E;border-bottom:2px solid #C4A962;
-            padding:10px 16px;margin-bottom:16px;border-radius:8px;
-            display:flex;align-items:center;gap:16px}
-.nav-title{color:#C4A962;font-size:1.1rem;font-weight:800;letter-spacing:1px}
+           border-bottom:1px solid #1A2E47}
+.grade-tool{color:#F4F8FF;font-weight:700;min-width:130px;font-size:.88rem}
+.grade-note{color:#8B9EC4;font-size:.78rem;flex:1}
+
+/* Chat bubbles */
+.chat-msg-user{background:#0F1E32;border-radius:12px 12px 4px 12px;
+               padding:10px 14px;margin:6px 0;color:#F4F8FF;font-size:.9rem;
+               border:1px solid #1A2E47}
+.chat-msg-bot{background:#112040;border-radius:12px 12px 12px 4px;
+              padding:10px 14px;margin:6px 0;color:#F4F8FF;font-size:.9rem;
+              border-left:3px solid #C8102E}
+
+/* Nav banner */
+.nav-banner{background:linear-gradient(135deg,#0F1E32 0%,#091525 100%);
+            border-bottom:2px solid #C8102E;padding:14px 22px;margin-bottom:20px;
+            border-radius:10px;display:flex;align-items:center;gap:16px;
+            box-shadow:0 4px 24px rgba(0,0,0,0.5)}
+.nav-title{color:#F4F8FF;font-size:1.15rem;font-weight:900;letter-spacing:2px;
+           text-transform:uppercase}
+.nav-title .red{color:#C8102E}
+.nav-title .blue{color:#5B9BD5}
+
+/* Streamlit tab styling */
+[data-baseweb="tab-list"]{background:#0F1E32 !important;border-radius:8px;padding:4px}
+[data-baseweb="tab"]{color:#8B9EC4 !important;font-weight:600 !important}
+[aria-selected="true"]{color:#F4F8FF !important;border-bottom:2px solid #C8102E !important}
+
+/* Streamlit metric overrides */
+[data-testid="stMetric"]{background:#0F1E32;border-radius:10px;padding:12px 16px;
+                          border:1px solid #1A2E47}
+[data-testid="stMetricLabel"]{color:#8B9EC4 !important;font-size:.78rem !important;
+                               text-transform:uppercase;letter-spacing:1px}
+[data-testid="stMetricValue"]{color:#F4F8FF !important;font-size:1.5rem !important;font-weight:800 !important}
+[data-testid="stMetricDelta"]{font-size:.78rem !important}
+
+/* Button overrides */
+.stButton>button{background:#C8102E;color:#fff;border:none;border-radius:8px;
+                 font-weight:700;letter-spacing:.5px;transition:background .2s}
+.stButton>button:hover{background:#A00D25}
+
+/* Selectbox / radio */
+[data-baseweb="select"] div{background:#0F1E32 !important;border-color:#1A2E47 !important;color:#F4F8FF !important}
 </style>""", unsafe_allow_html=True)
+
+# ── Particle animation background ─────────────────────────────────────────────
+components.html("""
+<script>
+(function(){
+  try {
+    var doc = window.parent.document;
+    var win = window.parent;
+    var old = doc.getElementById('mlb-bg-particles');
+    if(old) old.remove();
+
+    var canvas = doc.createElement('canvas');
+    canvas.id = 'mlb-bg-particles';
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;opacity:0.55;';
+    doc.body.appendChild(canvas);
+
+    var ctx = canvas.getContext('2d');
+    var W, H;
+    function resize(){ W = win.innerWidth; H = win.innerHeight; canvas.width=W; canvas.height=H; }
+    resize();
+    win.addEventListener('resize', resize);
+
+    var mouse = {x: W/2, y: H/2};
+    doc.addEventListener('mousemove', function(e){ mouse.x=e.clientX; mouse.y=e.clientY; });
+
+    var COLS = [
+      [200,16,46],   // MLB red
+      [91,155,213],  // MLB blue
+      [244,248,255]  // white
+    ];
+
+    var N = 75;
+    var pts = [];
+    for(var i=0;i<N;i++){
+      var c = COLS[Math.floor(Math.random()*COLS.length)];
+      pts.push({
+        x: Math.random()*W, y: Math.random()*H,
+        r: Math.random()*1.8+0.4,
+        vx:(Math.random()-.5)*0.25, vy:(Math.random()-.5)*0.25,
+        cr:c[0], cg:c[1], cb:c[2],
+        a: Math.random()*0.45+0.1
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+      for(var i=0;i<pts.length;i++){
+        var p=pts[i];
+        var dx=mouse.x-p.x, dy=mouse.y-p.y;
+        var d=Math.sqrt(dx*dx+dy*dy);
+        if(d<180 && d>0){ p.vx-=dx/d*0.018; p.vy-=dy/d*0.018; }
+        p.vx*=0.99; p.vy*=0.99;
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+        if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle='rgba('+p.cr+','+p.cg+','+p.cb+','+p.a+')';
+        ctx.fill();
+      }
+      for(var i=0;i<pts.length;i++){
+        for(var j=i+1;j<pts.length;j++){
+          var dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+          var d=Math.sqrt(dx*dx+dy*dy);
+          if(d<90){
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x,pts[i].y);
+            ctx.lineTo(pts[j].x,pts[j].y);
+            ctx.strokeStyle='rgba(26,46,71,'+(1-d/90)*0.4+')';
+            ctx.lineWidth=0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  } catch(e){}
+})();
+</script>
+""", height=0)
 
 # ── Cached data loaders ────────────────────────────────────────────────────────
 
@@ -595,7 +735,7 @@ def build_arsenal(sc):
     return agg.sort_values("Usage%", ascending=False)
 
 # ── App Navigation ─────────────────────────────────────────────────────────────
-st.markdown('<div class="nav-banner"><span class="nav-title">⚾ BOSWORTH ANALYTICS · MLB DASHBOARD</span></div>',
+st.markdown('<div class="nav-banner"><span class="nav-title">⚾ <span class="red">BOSWORTH</span> <span class="blue">ANALYTICS</span> · MLB DASHBOARD</span></div>',
             unsafe_allow_html=True)
 app_mode = st.radio("", ["Player Comparison", "Team Comparison", "AI Chat"],
                     horizontal=True, key="top_app_mode", label_visibility="collapsed")
@@ -1185,7 +1325,7 @@ def generate_pdf():
 
     C_HDR  = (14,  17,  23)
     C_SECT = (26,  29,  46)
-    C_GOLD = (196, 169, 98)
+    C_GOLD = (200, 16, 46)   # MLB red accent for PDF headers
     C_WHT  = (250, 250, 250)
     C_TXT  = (30,  30,  30)
     C_SUB  = (110, 120, 140)
