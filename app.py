@@ -1219,6 +1219,15 @@ if app_mode == "Scouting Report":
     sn_df  = p_seasons(sr_player)
     _seas_str = " / ".join(str(s) for s in sorted(sel_seasons))
 
+    # Pre-load Statcast once (cached) — shared by Spray Chart + Zone Analysis
+    _sr_sc_raw, _sr_sc_season = pd.DataFrame(), None
+    if mid and HAS_PB:
+        for _zss in sorted(sel_seasons, reverse=True):
+            _sr_sc_raw = (get_statcast_pitcher_raw(mid, _zss) if mode == "Pitchers"
+                          else get_statcast_batter_raw(mid, _zss))
+            if not _sr_sc_raw.empty:
+                _sr_sc_season = _zss; break
+
     # ── Report header banner ──────────────────────────────────────────────────────
     def _qs(key, fmt):
         v = row.get(key) if row is not None else None
@@ -1278,6 +1287,187 @@ if app_mode == "Scouting Report":
         f'</div></div>',
         unsafe_allow_html=True
     )
+
+    # ── MLB Rankings (right under player card) ───────────────────────────────────
+    st.markdown('<div class="section-header">MLB Rankings</div>', unsafe_allow_html=True)
+    _rank_season = int(sn_df["Season"].max()) if not sn_df.empty else int(max(sel_seasons))
+    _rank_df = all_fg[all_fg["Season"] == _rank_season].copy()
+    if mode == "Pitchers":
+        _rq = pd.to_numeric(_rank_df.get("IP", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        _rank_df = _rank_df[_rq >= 20]
+        _rank_defs = [
+            ("ERA","ERA",True,"{:.2f}"),("WHIP","WHIP",True,"{:.2f}"),
+            ("K%","K%",False,"{:.1f}%"),("BB%","BB%",True,"{:.1f}%"),
+            ("K/9","K/9",False,"{:.1f}"),("K-BB%","K-BB%",False,"{:.1f}%"),
+            ("FIP","FIP",True,"{:.2f}"),("IP","IP",False,"{:.1f}"),
+            ("WAR","WAR",False,"{:.1f}"),
+        ]
+    else:
+        _rq = pd.to_numeric(_rank_df.get("PA", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        _rank_df = _rank_df[_rq >= 100]
+        _rank_defs = [
+            ("AVG","AVG",False,"{:.3f}"),("OBP","OBP",False,"{:.3f}"),
+            ("SLG","SLG",False,"{:.3f}"),("OPS","OPS",False,"{:.3f}"),
+            ("HR","HR",False,"{:.0f}"),("RBI","RBI",False,"{:.0f}"),
+            ("SB","SB",False,"{:.0f}"),("wRC+","wRC+",False,"{:.0f}"),
+            ("K%","K%",True,"{:.1f}%"),("BB%","BB%",False,"{:.1f}%"),
+            ("WAR","WAR",False,"{:.1f}"),
+        ]
+    _rank_cards = []
+    for _sc2, _sn2, _lib2, _fmt2 in _rank_defs:
+        if _sc2 not in _rank_df.columns: continue
+        _tmp2 = (_rank_df[["Name",_sc2]].dropna()
+                 .sort_values(_sc2, ascending=_lib2).reset_index(drop=True))
+        _pm2 = _tmp2[_tmp2["Name"] == sr_player]
+        if _pm2.empty: continue
+        _val2 = float(_pm2.iloc[0][_sc2])
+        _rpos2 = int(_pm2.index[0]) + 1
+        _tot2  = len(_tmp2)
+        _pct2  = round((_tot2 - _rpos2) / _tot2 * 100)
+        _rank_cards.append((_sn2, _val2, _rpos2, _tot2, _pct2, _fmt2))
+
+    def _pct_clr(p):
+        if p >= 90: return "#00C851"
+        if p >= 75: return "#8BC34A"
+        if p >= 50: return "#8B9EC4"
+        if p >= 25: return "#FFA726"
+        return "#EF5350"
+
+    if _rank_cards:
+        _rc_html = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px">'
+        for _sn2, _val2, _rpos2, _tot2, _pct2, _fmt2 in _rank_cards:
+            _cc = _pct_clr(_pct2)
+            _vd = _fmt2.format(_val2)
+            _rc_html += (
+                f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-top:3px solid {_cc};'
+                f'border-radius:10px;padding:13px 16px;min-width:110px;flex:1">'
+                f'<div style="font-size:.6rem;font-weight:700;color:#C8102E;'
+                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">{_sn2}</div>'
+                f'<div style="font-size:1.55rem;font-weight:900;color:#F4F8FF;'
+                f'font-family:monospace;line-height:1.1">{_vd}</div>'
+                f'<div style="font-size:.7rem;color:{_cc};font-weight:700;margin-top:6px">'
+                f'#{_rpos2} of {_tot2}</div>'
+                f'<div style="margin-top:5px;background:#0A1525;border-radius:3px;height:4px">'
+                f'<div style="width:{_pct2}%;background:{_cc};height:4px;border-radius:3px"></div></div>'
+                f'<div style="font-size:.6rem;color:#8B9EC4;margin-top:3px">'
+                f'{_pct2}th pct · {_rank_season}</div></div>'
+            )
+        _rc_html += '</div>'
+        st.markdown(_rc_html, unsafe_allow_html=True)
+    else:
+        st.markdown(
+            '<div style="color:#8B9EC4;font-size:.85rem;padding:8px 0">'
+            'No ranking data available (need ≥20 IP / ≥100 PA in selected season).</div>',
+            unsafe_allow_html=True
+        )
+
+    # ── Spray Chart — Hitters (right under rankings) ─────────────────────────────
+    if mode == "Hitters" and not _sr_sc_raw.empty:
+        _SC_HIT_SET = {"single","double","triple","home_run"}
+        _EV_CLR_T = {"home_run":"#C8102E","triple":"#FFD700","double":"#FFA726","single":"#00BFFF"}
+        _sp_df = _sr_sc_raw[
+            _sr_sc_raw["hc_x"].notna() & _sr_sc_raw["hc_y"].notna() &
+            _sr_sc_raw["events"].notna()
+        ].copy()
+        _sp_in = _sp_df[_sp_df["events"].isin(
+            _SC_HIT_SET | {"field_out","grounded_into_double_play","double_play",
+                           "sac_fly","fielders_choice_out","force_out"}
+        )]
+        if not _sp_in.empty:
+            st.markdown('<div class="section-header">Spray Chart</div>', unsafe_allow_html=True)
+            _sp_hits = []
+            for _, _spr in _sp_in.iterrows():
+                _shx = _spr.get("hc_x"); _shy = _spr.get("hc_y")
+                if pd.isna(_shx) or pd.isna(_shy): continue
+                _sp_hits.append({"x": round(float(_shx),1), "y": round(float(_shy),1),
+                                  "c": _EV_CLR_T.get(_spr.get("events",""),"#1A2E47"),
+                                  "e": str(_spr.get("events",""))})
+            _sp_js  = json.dumps(_sp_hits)
+            _sp_n1  = sum(1 for h in _sp_hits if h["e"]=="single")
+            _sp_n2  = sum(1 for h in _sp_hits if h["e"]=="double")
+            _sp_n3  = sum(1 for h in _sp_hits if h["e"]=="triple")
+            _sp_nhr = sum(1 for h in _sp_hits if h["e"]=="home_run")
+            _sp_no  = sum(1 for h in _sp_hits if h["e"] not in _EV_CLR_T)
+            _sp_html = f"""<!DOCTYPE html><html><head>
+<style>html,body{{margin:0;padding:0;background:{CARD_BG};font-family:'Inter',sans-serif}}
+#sc{{display:block;margin:0 auto}}
+.leg{{display:flex;gap:14px;justify-content:center;padding:5px 0;font-size:11px;color:#8B9EC4;flex-wrap:wrap}}
+.dot{{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}}
+</style></head><body>
+<canvas id="sc" width="380" height="360"></canvas>
+<div class="leg">
+  <span><span class="dot" style="background:#00BFFF"></span>1B ({_sp_n1})</span>
+  <span><span class="dot" style="background:#FFA726"></span>2B ({_sp_n2})</span>
+  <span><span class="dot" style="background:#FFD700"></span>3B ({_sp_n3})</span>
+  <span><span class="dot" style="background:#C8102E"></span>HR ({_sp_nhr})</span>
+  <span><span class="dot" style="background:#1A2E47;border:1px solid #2A3E57"></span>Out ({_sp_no})</span>
+</div>
+<script>
+var cv=document.getElementById('sc'),ctx=cv.getContext('2d');
+var W=cv.width,H=cv.height,SX=W/250,SY=H/260;
+function px(x){{return x*SX;}} function py(y){{return y*SY;}}
+ctx.fillStyle='{CARD_BG}';ctx.fillRect(0,0,W,H);
+ctx.beginPath();ctx.moveTo(px(6),py(40));
+ctx.quadraticCurveTo(px(125),py(0),px(244),py(40));
+ctx.strokeStyle='#C8102E';ctx.lineWidth=2;ctx.stroke();
+ctx.beginPath();
+ctx.moveTo(px(125),py(208));ctx.lineTo(px(6),py(40));
+ctx.moveTo(px(125),py(208));ctx.lineTo(px(244),py(40));
+ctx.strokeStyle='#FFFFFF44';ctx.lineWidth=1.5;ctx.stroke();
+ctx.beginPath();ctx.arc(px(125),py(152),px(46),0,Math.PI*2);
+ctx.strokeStyle='#C8A06033';ctx.lineWidth=1;ctx.stroke();
+var hm=[px(125),py(208)],b1=[px(172),py(161)],b2=[px(125),py(112)],b3=[px(78),py(161)];
+ctx.beginPath();
+ctx.moveTo(hm[0],hm[1]);ctx.lineTo(b1[0],b1[1]);ctx.lineTo(b2[0],b2[1]);
+ctx.lineTo(b3[0],b3[1]);ctx.closePath();
+ctx.strokeStyle='#FFFFFF55';ctx.lineWidth=1.5;ctx.stroke();
+[b1,b2,b3].forEach(function(b){{ctx.fillStyle='#FFFFFF88';ctx.fillRect(b[0]-4,b[1]-4,8,8);}});
+ctx.beginPath();ctx.arc(px(125),py(158),px(4),0,Math.PI*2);ctx.fillStyle='#C8A06055';ctx.fill();
+ctx.beginPath();ctx.arc(px(125),py(208),px(3),0,Math.PI*2);ctx.fillStyle='#FFFFFF77';ctx.fill();
+var hits={_sp_js};
+hits.forEach(function(h){{
+  ctx.globalAlpha=0.82;ctx.beginPath();ctx.arc(px(h.x),py(h.y),4,0,Math.PI*2);
+  ctx.fillStyle=h.c;ctx.fill();ctx.globalAlpha=1;
+  ctx.beginPath();ctx.arc(px(h.x),py(h.y),4,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=0.5;ctx.stroke();
+}});
+</script></body></html>"""
+            _spc1, _spc2 = st.columns([2, 1])
+            with _spc1:
+                components.html(_sp_html, height=420)
+            with _spc2:
+                _lf2 = _sp_in[_sp_in["hc_x"] < 100]
+                _cf2 = _sp_in[(_sp_in["hc_x"] >= 100) & (_sp_in["hc_x"] <= 150)]
+                _rf2 = _sp_in[_sp_in["hc_x"] > 150]
+                _dt2 = max(len(_sp_in), 1)
+                _dh2 = ('<div style="margin-top:20px">'
+                        '<div style="font-size:.6rem;font-weight:700;color:#C8102E;'
+                        'letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">'
+                        'Spray Direction</div>')
+                for _dl2, _dd2 in [("Left Field",_lf2),("Center",_cf2),("Right Field",_rf2)]:
+                    _dp2 = round(len(_dd2)/_dt2*100)
+                    _dh2 += (f'<div style="margin-bottom:9px">'
+                             f'<div style="display:flex;justify-content:space-between;'
+                             f'font-size:.74rem;color:#8B9EC4;margin-bottom:3px">'
+                             f'<span>{_dl2}</span><span style="color:#F4F8FF">{_dp2}%</span></div>'
+                             f'<div style="background:#0A1525;border-radius:3px;height:5px">'
+                             f'<div style="width:{_dp2}%;background:#00BFFF;height:5px;'
+                             f'border-radius:3px"></div></div></div>')
+                _dh2 += ('<div style="margin-top:14px;font-size:.6rem;font-weight:700;'
+                         'color:#C8102E;letter-spacing:2px;text-transform:uppercase;'
+                         'margin-bottom:10px">Hit Breakdown</div>')
+                for _et2, _ec2, _el2 in [("home_run","#C8102E","HR"),("triple","#FFD700","3B"),
+                                          ("double","#FFA726","2B"),("single","#00BFFF","1B")]:
+                    _ecnt2 = len(_sp_in[_sp_in["events"]==_et2])
+                    if _ecnt2 == 0: continue
+                    _dh2 += (f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+                             f'<div style="width:9px;height:9px;border-radius:50%;'
+                             f'background:{_ec2};flex-shrink:0"></div>'
+                             f'<span style="color:#8B9EC4;font-size:.74rem;width:28px">{_el2}</span>'
+                             f'<span style="color:#F4F8FF;font-weight:700;font-size:.85rem">'
+                             f'{_ecnt2}</span></div>')
+                _dh2 += '</div>'
+                st.markdown(_dh2, unsafe_allow_html=True)
 
     # ── Tool Grades + OFP ────────────────────────────────────────────────────────
     if grades:
@@ -1428,110 +1618,25 @@ if app_mode == "Scouting Report":
         )
         st.markdown(_bullets_html, unsafe_allow_html=True)
 
-    # ── MLB Rankings ─────────────────────────────────────────────────────────────
-    st.markdown('<div class="section-header">MLB Rankings</div>', unsafe_allow_html=True)
-    _rank_season = int(sn_df["Season"].max()) if not sn_df.empty else int(max(sel_seasons))
-    _rank_df = all_fg[all_fg["Season"] == _rank_season].copy()
-    if mode == "Pitchers":
-        _rq = pd.to_numeric(_rank_df.get("IP", pd.Series(dtype=float)), errors="coerce").fillna(0)
-        _rank_df = _rank_df[_rq >= 20]
-        _rank_defs = [
-            ("ERA",   "ERA",   True,  "{:.2f}"),
-            ("WHIP",  "WHIP",  True,  "{:.2f}"),
-            ("K%",    "K%",    False, "{:.1f}%"),
-            ("BB%",   "BB%",   True,  "{:.1f}%"),
-            ("K/9",   "K/9",   False, "{:.1f}"),
-            ("K-BB%", "K-BB%", False, "{:.1f}%"),
-            ("FIP",   "FIP",   True,  "{:.2f}"),
-            ("IP",    "IP",    False, "{:.1f}"),
-            ("WAR",   "WAR",   False, "{:.1f}"),
-        ]
-    else:
-        _rq = pd.to_numeric(_rank_df.get("PA", pd.Series(dtype=float)), errors="coerce").fillna(0)
-        _rank_df = _rank_df[_rq >= 100]
-        _rank_defs = [
-            ("AVG",  "AVG",  False, "{:.3f}"),
-            ("OBP",  "OBP",  False, "{:.3f}"),
-            ("SLG",  "SLG",  False, "{:.3f}"),
-            ("OPS",  "OPS",  False, "{:.3f}"),
-            ("HR",   "HR",   False, "{:.0f}"),
-            ("RBI",  "RBI",  False, "{:.0f}"),
-            ("SB",   "SB",   False, "{:.0f}"),
-            ("wRC+", "wRC+", False, "{:.0f}"),
-            ("K%",   "K%",   True,  "{:.1f}%"),
-            ("BB%",  "BB%",  False, "{:.1f}%"),
-            ("WAR",  "WAR",  False, "{:.1f}"),
-        ]
-    _rank_cards = []
-    for _sc2, _sn2, _lib2, _fmt2 in _rank_defs:
-        if _sc2 not in _rank_df.columns: continue
-        _tmp2 = (_rank_df[["Name", _sc2]].dropna()
-                 .sort_values(_sc2, ascending=_lib2)
-                 .reset_index(drop=True))
-        _pm2 = _tmp2[_tmp2["Name"] == sr_player]
-        if _pm2.empty: continue
-        _val2 = float(_pm2.iloc[0][_sc2])
-        _rpos2 = int(_pm2.index[0]) + 1
-        _tot2  = len(_tmp2)
-        _pct2  = round((_tot2 - _rpos2) / _tot2 * 100)
-        _rank_cards.append((_sn2, _val2, _rpos2, _tot2, _pct2, _fmt2))
-
-    def _pct_clr(p):
-        if p >= 90: return "#00C851"
-        if p >= 75: return "#8BC34A"
-        if p >= 50: return "#8B9EC4"
-        if p >= 25: return "#FFA726"
-        return "#EF5350"
-
-    if _rank_cards:
-        _rc_html = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px">'
-        for _sn2, _val2, _rpos2, _tot2, _pct2, _fmt2 in _rank_cards:
-            _cc = _pct_clr(_pct2)
-            _vd = _fmt2.format(_val2)
-            _rc_html += (
-                f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-top:3px solid {_cc};'
-                f'border-radius:10px;padding:13px 16px;min-width:110px;flex:1">'
-                f'<div style="font-size:.6rem;font-weight:700;color:#C8102E;'
-                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">{_sn2}</div>'
-                f'<div style="font-size:1.55rem;font-weight:900;color:#F4F8FF;'
-                f'font-family:monospace;line-height:1.1">{_vd}</div>'
-                f'<div style="font-size:.7rem;color:{_cc};font-weight:700;margin-top:6px">'
-                f'#{_rpos2} of {_tot2}</div>'
-                f'<div style="margin-top:5px;background:#0A1525;border-radius:3px;height:4px">'
-                f'<div style="width:{_pct2}%;background:{_cc};height:4px;border-radius:3px"></div></div>'
-                f'<div style="font-size:.6rem;color:#8B9EC4;margin-top:3px">{_pct2}th pct · {_rank_season}</div>'
-                f'</div>'
-            )
-        _rc_html += '</div>'
-        st.markdown(_rc_html, unsafe_allow_html=True)
-    else:
+    # ── Zone Analysis + Pitch Maps (Statcast) ────────────────────────────────────
+    _zone_raw    = _sr_sc_raw
+    _zone_season = _sr_sc_season
+    if not _zone_raw.empty and "plate_x" in _zone_raw.columns:
+        _hand_label = ""
+        if mode == "Hitters" and "stand" in _zone_raw.columns:
+            _st_vals = _zone_raw["stand"].dropna()
+            if not _st_vals.empty:
+                _hv = _st_vals.mode()[0]
+                _hand_label = (" · ◀ Left-Handed Batter" if _hv == "L"
+                               else " · Right-Handed Batter ▶" if _hv == "R"
+                               else " · Switch Hitter")
         st.markdown(
-            '<div style="color:#8B9EC4;font-size:.85rem;padding:8px 0">'
-            'No ranking data available (need ≥20 IP / ≥100 PA in selected season).</div>',
+            f'<div class="section-header">Zone Analysis '
+            f'<span style="color:#8B9EC4;font-size:.76rem;font-weight:400">'
+            f'({_zone_season} Statcast — catcher\'s view{_hand_label})</span></div>',
             unsafe_allow_html=True
         )
-
-    # ── Zone Analysis + Pitch Maps (Statcast) ────────────────────────────────────
-    if mid and HAS_PB:
-        _zone_raw = pd.DataFrame()
-        _zone_season = None
-        for _zs in sorted(sel_seasons, reverse=True):
-            _ztmp = (get_statcast_pitcher_raw(mid, _zs)
-                     if mode == "Pitchers"
-                     else get_statcast_batter_raw(mid, _zs))
-            if not _ztmp.empty:
-                _zone_raw = _ztmp
-                _zone_season = _zs
-                break
-
-        if not _zone_raw.empty and "plate_x" in _zone_raw.columns:
-            st.markdown(
-                f'<div class="section-header">Zone Analysis '
-                f'<span style="color:#8B9EC4;font-size:.76rem;font-weight:400">'
-                f'({_zone_season} Statcast — catcher\'s view)</span></div>',
-                unsafe_allow_html=True
-            )
-
+        if True:
             _NX, _NZ = 5, 5
             _XE = np.linspace(-1.0, 1.0, _NX + 1)
             _ZE = np.linspace(1.5, 3.5, _NZ + 1)
@@ -1665,143 +1770,6 @@ if app_mode == "Scouting Report":
                                 ech(_zone_chart(_dw,f"{_pt_nm} Whiff%",0,60,[CARD_BG,"#C8102E"]),height=200)
                             if _db:
                                 ech(_zone_chart(_db,f"{_pt_nm} BA",0.0,0.4,[CARD_BG,"#FFA726"]),height=200)
-
-            # ── Spray Chart (Hitters only) ────────────────────────────────────────
-            if mode == "Hitters":
-                _EV_CLR = {"home_run":"#C8102E","triple":"#FFD700",
-                           "double":"#FFA726","single":"#00BFFF"}
-                _spray_df2 = _zone_raw[
-                    _zone_raw["hc_x"].notna() & _zone_raw["hc_y"].notna() &
-                    _zone_raw["events"].notna()
-                ].copy()
-                _spray_in = _spray_df2[_spray_df2["events"].isin(
-                    _HITS | {"field_out","grounded_into_double_play","double_play",
-                             "sac_fly","fielders_choice_out","force_out"}
-                )]
-                if not _spray_in.empty:
-                    st.markdown('<div class="section-header">Spray Chart</div>',
-                                unsafe_allow_html=True)
-                    _hits_list = []
-                    for _, _hr in _spray_in.iterrows():
-                        _hx2 = _hr.get("hc_x"); _hy2 = _hr.get("hc_y")
-                        if pd.isna(_hx2) or pd.isna(_hy2): continue
-                        _hits_list.append({
-                            "x": round(float(_hx2), 1),
-                            "y": round(float(_hy2), 1),
-                            "c": _EV_CLR.get(_hr.get("events",""), "#1A2E47"),
-                            "e": str(_hr.get("events",""))
-                        })
-                    _hits_js = json.dumps(_hits_list)
-                    _n1  = sum(1 for h in _hits_list if h["e"]=="single")
-                    _n2  = sum(1 for h in _hits_list if h["e"]=="double")
-                    _n3  = sum(1 for h in _hits_list if h["e"]=="triple")
-                    _nhr = sum(1 for h in _hits_list if h["e"]=="home_run")
-                    _no  = sum(1 for h in _hits_list if h["e"] not in _EV_CLR)
-
-                    _spray_html2 = f"""<!DOCTYPE html><html><head>
-<style>
-html,body{{margin:0;padding:0;background:{CARD_BG};font-family:'Inter',sans-serif}}
-#sc{{display:block;margin:0 auto}}
-.leg{{display:flex;gap:14px;justify-content:center;padding:5px 0;font-size:11px;color:#8B9EC4;flex-wrap:wrap}}
-.dot{{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}}
-</style></head><body>
-<canvas id="sc" width="380" height="360"></canvas>
-<div class="leg">
-  <span><span class="dot" style="background:#00BFFF"></span>1B ({_n1})</span>
-  <span><span class="dot" style="background:#FFA726"></span>2B ({_n2})</span>
-  <span><span class="dot" style="background:#FFD700"></span>3B ({_n3})</span>
-  <span><span class="dot" style="background:#C8102E"></span>HR ({_nhr})</span>
-  <span><span class="dot" style="background:#1A2E47;border:1px solid #2A3E57"></span>Out ({_no})</span>
-</div>
-<script>
-var cv=document.getElementById('sc'),ctx=cv.getContext('2d');
-var W=cv.width,H=cv.height,SX=W/250,SY=H/260;
-function px(x){{return x*SX;}} function py(y){{return y*SY;}}
-ctx.fillStyle='{CARD_BG}';ctx.fillRect(0,0,W,H);
-// Outfield wall
-ctx.beginPath();ctx.moveTo(px(6),py(40));
-ctx.quadraticCurveTo(px(125),py(0),px(244),py(40));
-ctx.strokeStyle='#C8102E';ctx.lineWidth=2;ctx.stroke();
-// Foul lines
-ctx.beginPath();
-ctx.moveTo(px(125),py(208));ctx.lineTo(px(6),py(40));
-ctx.moveTo(px(125),py(208));ctx.lineTo(px(244),py(40));
-ctx.strokeStyle='#FFFFFF44';ctx.lineWidth=1.5;ctx.stroke();
-// Infield circle
-ctx.beginPath();ctx.arc(px(125),py(152),px(46),0,Math.PI*2);
-ctx.strokeStyle='#C8A06033';ctx.lineWidth=1;ctx.stroke();
-// Diamond
-var hm=[px(125),py(208)],b1=[px(172),py(161)],b2=[px(125),py(112)],b3=[px(78),py(161)];
-ctx.beginPath();
-ctx.moveTo(hm[0],hm[1]);ctx.lineTo(b1[0],b1[1]);ctx.lineTo(b2[0],b2[1]);
-ctx.lineTo(b3[0],b3[1]);ctx.closePath();
-ctx.strokeStyle='#FFFFFF55';ctx.lineWidth=1.5;ctx.stroke();
-// Bases
-[b1,b2,b3].forEach(function(b){{ctx.fillStyle='#FFFFFF88';ctx.fillRect(b[0]-4,b[1]-4,8,8);}});
-// Mound
-ctx.beginPath();ctx.arc(px(125),py(158),px(4),0,Math.PI*2);
-ctx.fillStyle='#C8A06055';ctx.fill();
-// Home plate
-ctx.beginPath();ctx.arc(px(125),py(208),px(3),0,Math.PI*2);
-ctx.fillStyle='#FFFFFF77';ctx.fill();
-// Hits
-var hits={_hits_js};
-hits.forEach(function(h){{
-  ctx.globalAlpha=0.82;
-  ctx.beginPath();ctx.arc(px(h.x),py(h.y),4,0,Math.PI*2);
-  ctx.fillStyle=h.c;ctx.fill();
-  ctx.globalAlpha=1;
-  ctx.beginPath();ctx.arc(px(h.x),py(h.y),4,0,Math.PI*2);
-  ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=0.5;ctx.stroke();
-}});
-</script></body></html>"""
-
-                    _sp_col, _sp_stat = st.columns([2, 1])
-                    with _sp_col:
-                        components.html(_spray_html2, height=420)
-                    with _sp_stat:
-                        _lf = _spray_in[_spray_in["hc_x"] < 100]
-                        _cf = _spray_in[(_spray_in["hc_x"] >= 100) & (_spray_in["hc_x"] <= 150)]
-                        _rf = _spray_in[_spray_in["hc_x"] > 150]
-                        _dtot = max(len(_spray_in), 1)
-                        _dir_h = (
-                            '<div style="margin-top:20px">'
-                            '<div style="font-size:.6rem;font-weight:700;color:#C8102E;'
-                            'letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">'
-                            'Spray Direction</div>'
-                        )
-                        for _dlbl, _ddf in [("Left Field",_lf),("Center",_cf),("Right Field",_rf)]:
-                            _dp = round(len(_ddf)/_dtot*100)
-                            _dir_h += (
-                                f'<div style="margin-bottom:9px">'
-                                f'<div style="display:flex;justify-content:space-between;'
-                                f'font-size:.74rem;color:#8B9EC4;margin-bottom:3px">'
-                                f'<span>{_dlbl}</span>'
-                                f'<span style="color:#F4F8FF">{_dp}%</span></div>'
-                                f'<div style="background:#0A1525;border-radius:3px;height:5px">'
-                                f'<div style="width:{_dp}%;background:#00BFFF;height:5px;border-radius:3px"></div>'
-                                f'</div></div>'
-                            )
-                        _dir_h += (
-                            '<div style="margin-top:14px;font-size:.6rem;font-weight:700;color:#C8102E;'
-                            'letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">'
-                            'Hit Breakdown</div>'
-                        )
-                        for _et, _ec, _el in [("home_run","#C8102E","HR"),
-                                              ("triple","#FFD700","3B"),
-                                              ("double","#FFA726","2B"),
-                                              ("single","#00BFFF","1B")]:
-                            _ecnt = len(_spray_in[_spray_in["events"]==_et])
-                            if _ecnt == 0: continue
-                            _dir_h += (
-                                f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
-                                f'<div style="width:9px;height:9px;border-radius:50%;background:{_ec};flex-shrink:0"></div>'
-                                f'<span style="color:#8B9EC4;font-size:.74rem;width:28px">{_el}</span>'
-                                f'<span style="color:#F4F8FF;font-weight:700;font-size:.85rem">{_ecnt}</span>'
-                                f'</div>'
-                            )
-                        _dir_h += '</div>'
-                        st.markdown(_dir_h, unsafe_allow_html=True)
 
     st.stop()
 
