@@ -991,115 +991,189 @@ You can also discuss any other MLB players in general based on your training kno
             st.rerun()
     st.stop()
 
+# ── Helper functions (defined early so Scouting Report can use them) ───────────
+def p_seasons(name): return all_fg[all_fg["Name"]==name].sort_values("Season")
+def p_latest(name):
+    d = p_seasons(name); return d.iloc[-1] if not d.empty else None
+def p_mlbam(name):
+    r = p_latest(name)
+    return int(r["IDmlb"]) if r is not None and "IDmlb" in r.index and pd.notna(r.get("IDmlb")) else None
+def safe(val, fmt="{:.3f}"):
+    try: return fmt.format(float(val)) if val is not None and pd.notna(val) else "N/A"
+    except: return "N/A"
+
+def _compute_scouting_grades(player):
+    row = p_latest(player)
+    if row is None: return None
+    def gv(col, default=0.0):
+        v = row.get(col)
+        return float(v) if v is not None and pd.notna(v) else default
+    def clamp(x): return max(20, min(80, round(x)))
+    if mode == "Hitters":
+        wrc = gv("wRC+", 100); slg = gv("SLG", 0.400)
+        avg = gv("AVG", 0.248); sb  = gv("SB", 0); g = gv("G", 100)
+        iso = slg - avg; sbr = sb / max(g, 1) * 162
+        return {"Hit": clamp(50+(wrc-100)*0.30), "Power": clamp(20+iso*200),
+                "Speed": clamp(35+sbr*0.65), "Field": 50, "Arm": 50}
+    else:
+        bb=gv("BB%",8.5); k=gv("K%",23.0); k9=gv("K/9",9.0)
+        ip=gv("IP",50.0); gs=gv("GS",0); g=gv("G",20)
+        ipg=ip/max(g,1); stamina=clamp(ipg*11) if gs>0 else clamp(35+ipg*5)
+        velo_grade=50
+        if HAS_PB:
+            mid=p_mlbam(player)
+            if mid:
+                for s in sorted(sel_seasons, reverse=True):
+                    raw=get_statcast_pitcher_raw(mid,s)
+                    if not raw.empty and "release_speed" in raw.columns:
+                        fb=raw[raw["pitch_type"].isin(["FF","SI"])]["release_speed"].dropna()
+                        if len(fb)<5: fb=raw[raw["pitch_type"].isin(["FF","SI","FC"])]["release_speed"].dropna()
+                        if len(fb)>=5: velo_grade=clamp(50+(fb.mean()-93.5)*5); break
+        return {"FB Velo": velo_grade, "Command": clamp(50+(8.5-bb)*2.5),
+                "Stamina": stamina, "Deception": clamp(50+(k-23.0)*1.5),
+                "Arm Strength": clamp(50+(k9-9.0)*3.0)}
+
 # ════════════════════════════════════════════════════════════════════════════════
 # SCOUTING REPORT MODE
 # ════════════════════════════════════════════════════════════════════════════════
 if app_mode == "Scouting Report":
-    st.markdown('<div class="section-header">Player Scouting Report — 20-80 Tool Grades</div>',
-                unsafe_allow_html=True)
 
-    _src1, _src2, _src3 = st.columns([1, 2, 3])
-    with _src1:
-        mode = st.radio("Type", ["Hitters", "Pitchers"], horizontal=True, key="sr_mode")
-    with _src2:
-        _sr_seas = st.pills("Seasons", ALL_SEASONS, default=[2025, 2026], selection_mode="multi", key="sr_seasons")
+    def _gc(g):
+        if g>=70: return "#00C851","#004d1f","#00C851"
+        if g>=60: return "#2ecc71","#0a5c2a","#2ecc71"
+        if g>=55: return "#8BC34A","#2d5000","#8BC34A"
+        if g>=50: return "#8B9EC4","#1A2E47","#8B9EC4"
+        if g>=45: return "#FFA726","#5c2d00","#FFA726"
+        if g>=40: return "#EF5350","#5c0000","#EF5350"
+        return "#B71C1C","#3a0000","#B71C1C"
+
+    def _grade_bar(tool, val):
+        pct = round((val - 20) / 60 * 100)
+        color, c1, c2 = _gc(val)
+        lbl = grade_label(val)
+        return (
+            f'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;'
+            f'border-bottom:1px solid #1A2E47">'
+            f'<span style="width:100px;color:#8B9EC4;font-size:.72rem;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.8px;flex-shrink:0">{tool}</span>'
+            f'<div style="flex:1;height:10px;background:#0A1525;border-radius:5px;overflow:hidden">'
+            f'<div style="width:{pct}%;height:100%;border-radius:5px;'
+            f'background:linear-gradient(90deg,{c1},{c2})"></div></div>'
+            f'<span style="width:32px;text-align:center;color:{color};font-weight:900;'
+            f'font-size:1.15rem;font-family:monospace;flex-shrink:0">{val}</span>'
+            f'<span style="width:110px;color:{color};font-size:.72rem;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.6px;flex-shrink:0">{lbl}</span>'
+            f'</div>'
+        )
+
+    def _scout_card(player, player_color):
+        grades = _compute_scouting_grades(player)
+        mid = p_mlbam(player)
+        hs = (f"https://img.mlbstatic.com/mlb-photos/image/upload/"
+              f"d_people:generic:headshot:67:current.png"
+              f"/w_213,q_auto:best/v1/people/{mid}/headshot/67/current") if mid else ""
+        row = p_latest(player)
+        team = row.get("Team","") if row is not None else ""
+
+        # Header
+        st.markdown(
+            f'<div style="background:{CARD_BG};border:1px solid {LINE_CLR};border-top:4px solid {player_color};'
+            f'border-radius:12px;padding:20px;margin-bottom:16px">'
+            f'<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">'
+            + (f'<img src="{hs}" style="width:72px;height:72px;border-radius:50%;'
+               f'border:3px solid {player_color};object-fit:cover;flex-shrink:0">' if hs else
+               f'<div style="width:72px;height:72px;border-radius:50%;background:#1A2E47;'
+               f'border:3px solid {player_color};flex-shrink:0"></div>')
+            + f'<div><div style="font-size:1.3rem;font-weight:900;color:#F4F8FF;letter-spacing:.5px">{player}</div>'
+            f'<div style="font-size:.82rem;color:{SUBTEXT};margin-top:2px">{team}</div></div>'
+            f'</div>',
+            unsafe_allow_html=True)
+
+        if grades is None:
+            st.markdown('<div style="color:#8B9EC4;font-size:.85rem;padding:8px 0">Insufficient data to grade this player.</div></div>', unsafe_allow_html=True)
+            return
+
+        bars = "".join(_grade_bar(t, v) for t, v in grades.items())
+        ofp = round(sum(grades.values()) / len(grades))
+        oc, _, oc2 = _gc(ofp)
+        ol = grade_label(ofp)
+
+        st.markdown(
+            f'<div style="margin-bottom:12px">{bars}</div>'
+            f'<div style="margin-top:16px;padding:14px 20px;background:#0A1525;border-radius:10px;'
+            f'border:1px solid {player_color}33;display:flex;align-items:center;justify-content:space-between">'
+            f'<div><div style="color:{SUBTEXT};font-size:.68rem;text-transform:uppercase;'
+            f'letter-spacing:1.5px;margin-bottom:2px">Overall Future Potential</div>'
+            f'<div style="color:{SUBTEXT};font-size:.72rem">20-80 Scouting Scale</div></div>'
+            f'<div style="text-align:right">'
+            f'<span style="color:{oc};font-size:2.6rem;font-weight:900;font-family:monospace;'
+            f'line-height:1">{ofp}</span>'
+            f'<div style="color:{oc};font-size:.78rem;font-weight:700;text-transform:uppercase;'
+            f'letter-spacing:1px">{ol}</div></div></div>'
+            f'</div>',
+            unsafe_allow_html=True)
+
+    # ── Controls ────────────────────────────────────────────────────────────────
+    _c1, _c2 = st.columns([1, 3])
+    with _c1:
+        mode = st.radio("Type", ["Hitters","Pitchers"], horizontal=True, key="sr_mode")
+    with _c2:
+        _sr_seas = st.pills("Seasons", ALL_SEASONS, default=ALL_SEASONS, selection_mode="multi", key="sr_seasons")
         sel_seasons = tuple(sorted(_sr_seas)) if _sr_seas else (2026,)
 
     with st.spinner("Loading players..."):
-        all_fg = load_mlb_hitting(sel_seasons) if mode == "Hitters" else load_mlb_pitching(sel_seasons)
+        all_fg = load_mlb_hitting(sel_seasons) if mode=="Hitters" else load_mlb_pitching(sel_seasons)
         try:
-            _sr_adv = (load_fangraphs_batting(sel_seasons) if mode == "Hitters"
-                       else load_fangraphs_pitching(sel_seasons))
+            _sr_adv = load_fangraphs_batting(sel_seasons) if mode=="Hitters" else load_fangraphs_pitching(sel_seasons)
             if not _sr_adv.empty:
                 all_fg["IDmlb"]  = pd.to_numeric(all_fg["IDmlb"],  errors="coerce")
                 _sr_adv["IDmlb"] = pd.to_numeric(_sr_adv["IDmlb"], errors="coerce")
-                all_fg = all_fg.merge(_sr_adv, on=["IDmlb", "Season"], how="left")
-        except Exception:
-            pass
+                all_fg = all_fg.merge(_sr_adv, on=["IDmlb","Season"], how="left")
+        except Exception: pass
 
-    _sr_plist = sorted(all_fg["Name"].dropna().unique().tolist()) if not all_fg.empty else []
-    _srp1, _srp2 = st.columns(2)
-    with _srp1:
-        sr_pa = st.selectbox("Player A", _sr_plist, key="sr_pa")
-    with _srp2:
-        sr_pb = st.selectbox("Player B", [p for p in _sr_plist if p != sr_pa], key="sr_pb")
+    _plist = sorted(all_fg["Name"].dropna().unique().tolist()) if not all_fg.empty else []
+    _pc1, _pc2 = st.columns(2)
+    with _pc1: sr_pa = st.selectbox("Player A", _plist, key="sr_pa")
+    with _pc2: sr_pb = st.selectbox("Player B", [p for p in _plist if p != sr_pa], key="sr_pb")
 
     SR_PLAYERS = [sr_pa, sr_pb]
     SR_COLORS  = {sr_pa: PA_COL, sr_pb: PB_COL}
 
-    def _sr_grade_color(g):
-        if g >= 70: return "#1a7a4a"
-        if g >= 60: return "#2ecc71"
-        if g >= 55: return "#7dce82"
-        if g >= 50: return "#95a5a6"
-        if g >= 45: return "#e67e22"
-        if g >= 40: return "#e74c3c"
-        return "#922b21"
-
-    def _sr_render(player):
-        grades = _compute_scouting_grades(player)
-        if grades is None:
-            st.info(f"Not enough data for {player}.")
-            return
-        st.markdown(
-            f'<div style="font-size:1rem;font-weight:800;color:#F4F8FF;'
-            f'margin-bottom:8px;letter-spacing:.5px">{player}</div>',
-            unsafe_allow_html=True)
-        for tool, val in grades.items():
-            gc = _sr_grade_color(val)
-            st.markdown(
-                f'<div class="grade-row">'
-                f'<span class="grade-tool">{tool}</span>'
-                f'<span class="grade-pill" style="background:{gc};">{val}</span>'
-                f'<span style="color:{gc};font-weight:700;font-size:.8rem;min-width:100px">'
-                f'{grade_label(val)}</span>'
-                f'</div>', unsafe_allow_html=True)
-        ofp = round(sum(grades.values()) / len(grades))
-        gc_ofp = _sr_grade_color(ofp)
-        st.markdown(
-            f'<div style="margin-top:12px;padding:14px;background:{CARD_BG};border-radius:10px;'
-            f'text-align:center;border:1px solid {LINE_CLR}">'
-            f'<div style="color:{SUBTEXT};font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;'
-            f'margin-bottom:4px">Overall Future Potential</div>'
-            f'<span style="color:{gc_ofp};font-size:2.4rem;font-weight:900">{ofp}</span>'
-            f'<span style="color:{gc_ofp};font-size:.9rem;font-weight:700;margin-left:10px">'
-            f'{grade_label(ofp)}</span>'
-            f'</div>', unsafe_allow_html=True)
-
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="text-align:center;margin-bottom:20px">'
+        f'<div style="font-size:1.6rem;font-weight:900;color:#F4F8FF;letter-spacing:2px;text-transform:uppercase">Scouting Report</div>'
+        f'<div style="font-size:.85rem;color:{SUBTEXT};margin-top:4px">'
+        f'{sr_pa} vs. {sr_pb} &nbsp;·&nbsp; {mode} &nbsp;·&nbsp; '
+        f'{", ".join(str(s) for s in sorted(sel_seasons))}</div>'
+        f'</div>',
+        unsafe_allow_html=True)
+
     sc1, sc2 = st.columns(2)
-    with sc1:
-        _sr_render(sr_pa)
-    with sc2:
-        _sr_render(sr_pb)
+    with sc1: _scout_card(sr_pa, PA_COL)
+    with sc2: _scout_card(sr_pb, PB_COL)
 
-    # Radar chart
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Tool Grade Radar Comparison</div>', unsafe_allow_html=True)
+    # Radar
+    st.markdown('<div class="section-header">Tool Grade Radar</div>', unsafe_allow_html=True)
     _sr_grades = {p: _compute_scouting_grades(p) for p in SR_PLAYERS}
     if any(g is not None for g in _sr_grades.values()):
         _tools = list(next(g for g in _sr_grades.values() if g is not None).keys())
-        _radar_ind = [{"name": t, "max": 80, "min": 20} for t in _tools]
-        _radar_series = []
-        for _p in SR_PLAYERS:
-            _gd = _sr_grades.get(_p)
-            if _gd is None: continue
-            _radar_series.append({
-                "name": _p, "type": "radar",
-                "data": [{"value": [_gd.get(t, 50) for t in _tools], "name": _p,
-                          "lineStyle":  {"color": SR_COLORS[_p], "width": 2},
-                          "areaStyle":  {"color": SR_COLORS[_p], "opacity": 0.15},
-                          "itemStyle":  {"color": SR_COLORS[_p]}}]
-            })
         ech({
-            **_base("20-80 Tool Grades"),
-            "legend": {"bottom": 4, "textStyle": {"color": TEXT}, "data": SR_PLAYERS},
-            "radar":  {"indicator": _radar_ind, "shape": "polygon",
-                       "splitLine": {"lineStyle": {"color": LINE_CLR}},
-                       "splitArea": {"areaStyle": {"color": [CARD_BG, "#0A1A2E"]}},
-                       "axisName":  {"color": TEXT, "fontSize": 11}},
-            "series": _radar_series,
-        }, height=420)
+            **_base(""),
+            "legend": {"bottom":4,"textStyle":{"color":TEXT},"data":SR_PLAYERS},
+            "radar":  {"indicator":[{"name":t,"max":80,"min":20} for t in _tools],
+                       "shape":"polygon",
+                       "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                       "splitArea":{"areaStyle":{"color":[CARD_BG,"#0A1A2E"]}},
+                       "axisName": {"color":TEXT,"fontSize":11}},
+            "series": [{"name":_p,"type":"radar",
+                        "data":[{"value":[(_sr_grades[_p] or {}).get(t,50) for t in _tools],
+                                 "name":_p,
+                                 "lineStyle":{"color":SR_COLORS[_p],"width":2},
+                                 "areaStyle":{"color":SR_COLORS[_p],"opacity":0.18},
+                                 "itemStyle":{"color":SR_COLORS[_p]}}]}
+                       for _p in SR_PLAYERS if _sr_grades.get(_p)],
+        }, height=440)
     st.stop()
 
 # ── Controls (top of page, no sidebar needed) ──────────────────────────────────
@@ -1107,7 +1181,7 @@ st.markdown('<div class="section-header">Select Players</div>', unsafe_allow_htm
 ctrl1, _ = st.columns([1, 3])
 with ctrl1:
     mode = st.radio("Compare", ["Hitters","Pitchers"], horizontal=True)
-sel_seasons = st.pills("Seasons", ALL_SEASONS, default=[2024, 2025, 2026], selection_mode="multi")
+sel_seasons = st.pills("Seasons", ALL_SEASONS, default=ALL_SEASONS, selection_mode="multi")
 if not sel_seasons:
     sel_seasons = [2025]
 seasons_key = tuple(sorted(sel_seasons))
@@ -1174,16 +1248,7 @@ st.markdown("---")
 PLAYERS = [player_a, player_b]
 COLORS  = {player_a: PA_COL, player_b: PB_COL}
 
-# ── Helper: pull player row from FG ───────────────────────────────────────────
-def p_seasons(name): return all_fg[all_fg["Name"]==name].sort_values("Season")
-def p_latest(name):
-    d = p_seasons(name); return d.iloc[-1] if not d.empty else None
-def p_mlbam(name):
-    r = p_latest(name)
-    return int(r["IDmlb"]) if r is not None and "IDmlb" in r.index and pd.notna(r.get("IDmlb")) else None
-def safe(val, fmt="{:.3f}"):
-    try: return fmt.format(float(val)) if val is not None and pd.notna(val) else "N/A"
-    except: return "N/A"
+# (p_seasons, p_latest, p_mlbam, safe defined above before scouting report)
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -1658,67 +1723,7 @@ def generate_pdf():
     return buf.getvalue()
 
 
-def _compute_scouting_grades(player):
-    """Estimate 20-80 tool grades from available stats for any player."""
-    row = p_latest(player)
-    if row is None:
-        return None
-
-    def gv(col, default=0.0):
-        v = row.get(col)
-        return float(v) if v is not None and pd.notna(v) else default
-
-    def clamp(x):
-        return max(20, min(80, round(x)))
-
-    if mode == "Hitters":
-        wrc = gv("wRC+", 100)
-        slg = gv("SLG",  0.400)
-        avg = gv("AVG",  0.248)
-        sb  = gv("SB",   0)
-        g   = gv("G",    100)
-        iso = slg - avg
-        sbr = sb / max(g, 1) * 162
-        return {
-            "Hit":   clamp(50 + (wrc - 100) * 0.30),
-            "Power": clamp(20 + iso * 200),
-            "Speed": clamp(35 + sbr * 0.65),
-            "Field": 50,
-            "Arm":   50,
-        }
-    else:
-        bb  = gv("BB%", 8.5)
-        k   = gv("K%",  23.0)
-        k9  = gv("K/9", 9.0)
-        ip  = gv("IP",  50.0)
-        gs  = gv("GS",  0)
-        g   = gv("G",   20)
-        ipg = ip / max(g, 1)
-        is_starter = gs > 0
-        stamina = clamp(ipg * 11) if is_starter else clamp(35 + ipg * 5)
-
-        # FB Velo grade from Statcast release_speed (MLB avg ~93.5 mph = 50)
-        velo_grade = 50
-        if HAS_PB:
-            mid = p_mlbam(player)
-            if mid:
-                for s in sorted(sel_seasons, reverse=True):
-                    raw = get_statcast_pitcher_raw(mid, s)
-                    if not raw.empty and "release_speed" in raw.columns:
-                        fb = raw[raw["pitch_type"].isin(["FF", "SI"])]["release_speed"].dropna()
-                        if len(fb) < 5:
-                            fb = raw[raw["pitch_type"].isin(["FF", "SI", "FC"])]["release_speed"].dropna()
-                        if len(fb) >= 5:
-                            velo_grade = clamp(50 + (fb.mean() - 93.5) * 5)
-                            break
-
-        return {
-            "FB Velo":      velo_grade,
-            "Command":      clamp(50 + (8.5 - bb) * 2.5),
-            "Stamina":      stamina,
-            "Deception":    clamp(50 + (k  - 23.0) * 1.5),
-            "Arm Strength": clamp(50 + (k9 - 9.0)  * 3.0),
-        }
+# (_compute_scouting_grades defined above before scouting report section)
 
 
 # ════════════════════════════════════════════════════════════════════════════════
