@@ -761,9 +761,11 @@ with st.sidebar:
         '<div class="sidebar-divider"></div>',
         unsafe_allow_html=True,
     )
+    _NAV_ICONS = {"Player Comparison": "⚾", "Team Comparison": "📊", "AI Chat": "🤖"}
     app_mode = st.radio(
         "Navigation",
-        ["⚾  Player Comparison", "📊  Team Comparison", "🤖  AI Chat"],
+        list(_NAV_ICONS.keys()),
+        format_func=lambda x: f"{_NAV_ICONS[x]}  {x}",
         key="top_app_mode",
         label_visibility="collapsed",
     )
@@ -773,8 +775,7 @@ with st.sidebar:
         'letter-spacing:1.5px;padding:4px 0">MLB Analytics Dashboard</div>',
         unsafe_allow_html=True,
     )
-# Normalize mode name (strip emoji prefix)
-app_mode = app_mode.split("  ", 1)[-1]
+# app_mode is already the plain name (format_func only changes display, not stored value)
 
 st.markdown(
     '<div class="nav-banner">'
