@@ -901,53 +901,95 @@ if app_mode == "AI Chat":
         st.code('ANTHROPIC_API_KEY = "sk-ant-..."', language="toml")
         st.stop()
 
-    chat_mode = st.radio("Compare", ["Hitters", "Pitchers"], horizontal=True, key="chat_mode")
-    chat_season = st.selectbox("Season", [2026, 2025, 2024, 2023], key="chat_season")
+    st.caption("Ask anything — current-season league leaders, career comparisons, records, "
+               "or analysis. Example: \"Who leads the league in doubles?\" · "
+               "\"Who's better, Bryce Harper or Mookie Betts?\" · "
+               "\"What active player has the most home runs?\"")
+    chat_season = st.selectbox("Current-season context", [2026, 2025, 2024, 2023], key="chat_season")
     chat_key = tuple(sorted([chat_season]))
 
-    with st.spinner("Loading player list..."):
-        chat_fg = load_mlb_hitting(chat_key) if chat_mode == "Hitters" else load_mlb_pitching(chat_key)
+    with st.spinner("Loading league data..."):
         try:
-            chat_adv = load_fangraphs_batting(chat_key) if chat_mode == "Hitters" \
-                       else load_fangraphs_pitching(chat_key)
-            if not chat_adv.empty:
-                chat_fg["IDmlb"] = pd.to_numeric(chat_fg["IDmlb"], errors="coerce")
-                chat_adv["IDmlb"] = pd.to_numeric(chat_adv["IDmlb"], errors="coerce")
-                chat_fg = chat_fg.merge(chat_adv, on=["IDmlb","Season"], how="left")
+            hit_fg = load_mlb_hitting(chat_key)
+            try:
+                _adv = load_fangraphs_batting(chat_key)
+                if not _adv.empty:
+                    hit_fg["IDmlb"] = pd.to_numeric(hit_fg["IDmlb"], errors="coerce")
+                    _adv["IDmlb"]   = pd.to_numeric(_adv["IDmlb"], errors="coerce")
+                    hit_fg = hit_fg.merge(_adv, on=["IDmlb","Season"], how="left")
+            except Exception:
+                pass
         except Exception:
-            pass
+            hit_fg = pd.DataFrame()
+        try:
+            pit_fg = load_mlb_pitching(chat_key)
+            try:
+                _advp = load_fangraphs_pitching(chat_key)
+                if not _advp.empty:
+                    pit_fg["IDmlb"] = pd.to_numeric(pit_fg["IDmlb"], errors="coerce")
+                    _advp["IDmlb"]  = pd.to_numeric(_advp["IDmlb"], errors="coerce")
+                    pit_fg = pit_fg.merge(_advp, on=["IDmlb","Season"], how="left")
+            except Exception:
+                pass
+        except Exception:
+            pit_fg = pd.DataFrame()
 
-    chat_players = sorted(chat_fg["Name"].dropna().unique().tolist()) if not chat_fg.empty else []
-    cp1, cp2 = st.columns(2)
-    with cp1:
-        chat_pa = st.selectbox("Player A", chat_players, key="chat_pa")
-    with cp2:
-        chat_pb = st.selectbox("Player B", [p for p in chat_players if p != chat_pa],
-                               key="chat_pb")
+    def _lb(df, stat, fmt, asc=False, top=12, qualcol=None, qualmin=0):
+        """Compact 'stat: Name val, ...' leaderboard string from a league df."""
+        if df.empty or stat not in df.columns:
+            return ""
+        d = df.copy()
+        d[stat] = pd.to_numeric(d[stat], errors="coerce")
+        if qualcol and qualcol in d.columns:
+            d = d[pd.to_numeric(d[qualcol], errors="coerce").fillna(0) >= qualmin]
+        d = d[["Name", stat]].dropna().sort_values(stat, ascending=asc).head(top)
+        if d.empty:
+            return ""
+        return f"{stat}: " + ", ".join(f"{n} {fmt.format(v)}" for n, v in zip(d["Name"], d[stat]))
 
-    def _get_stats_str(name):
-        rows = chat_fg[chat_fg["Name"] == name].sort_values("Season", ascending=False)
-        if rows.empty: return "No data"
-        r = rows.iloc[0]
-        keep = (["Season","AVG","OBP","SLG","OPS","wRC+","WAR","HR","RBI","SB","BB%","K%"]
-                if chat_mode == "Hitters"
-                else ["Season","ERA","WHIP","K/9","BB/9","K%","BB%","WAR","FIP","xFIP"])
-        parts = [f"{c}={r[c]:.3f}" if isinstance(r.get(c), float) else f"{c}={r.get(c,'N/A')}"
-                 for c in keep if c in r.index]
-        return ", ".join(parts)
+    _hit_lbs = [
+        _lb(hit_fg, "HR",  "{:.0f}"),                 _lb(hit_fg, "RBI", "{:.0f}"),
+        _lb(hit_fg, "2B",  "{:.0f}"),                 _lb(hit_fg, "3B",  "{:.0f}"),
+        _lb(hit_fg, "H",   "{:.0f}"),                 _lb(hit_fg, "SB",  "{:.0f}"),
+        _lb(hit_fg, "AVG", "{:.3f}", qualcol="PA", qualmin=180),
+        _lb(hit_fg, "OBP", "{:.3f}", qualcol="PA", qualmin=180),
+        _lb(hit_fg, "SLG", "{:.3f}", qualcol="PA", qualmin=180),
+        _lb(hit_fg, "OPS", "{:.3f}", qualcol="PA", qualmin=180),
+        _lb(hit_fg, "wRC+","{:.0f}", qualcol="PA", qualmin=180),
+        _lb(hit_fg, "WAR", "{:.1f}"),
+    ]
+    _pit_lbs = [
+        _lb(pit_fg, "WAR", "{:.1f}"),                 _lb(pit_fg, "SO",  "{:.0f}"),
+        _lb(pit_fg, "W",   "{:.0f}"),                 _lb(pit_fg, "SV",  "{:.0f}"),
+        _lb(pit_fg, "IP",  "{:.1f}"),
+        _lb(pit_fg, "ERA", "{:.2f}", asc=True, qualcol="IP", qualmin=40),
+        _lb(pit_fg, "WHIP","{:.2f}", asc=True, qualcol="IP", qualmin=40),
+        _lb(pit_fg, "FIP", "{:.2f}", asc=True, qualcol="IP", qualmin=40),
+        _lb(pit_fg, "K/9", "{:.1f}", qualcol="IP", qualmin=40),
+        _lb(pit_fg, "K%",  "{:.1f}", qualcol="IP", qualmin=40),
+    ]
+    _hit_block = "\n".join(x for x in _hit_lbs if x) or "unavailable"
+    _pit_block = "\n".join(x for x in _pit_lbs if x) or "unavailable"
 
     sys_prompt = f"""You are an expert MLB analytics assistant for Bosworth Analytics.
-You have access to real {chat_season} stats for any player the user asks about.
-Mode: {chat_mode}. Answer questions analytically, concisely, and back every claim with numbers.
-Do not make up stats — if data is unavailable, say so.
+Answer ANY baseball question: current-season league leaders, career comparisons, all-time
+or active records, team and historical analysis. Be concise and analytical, back claims with
+numbers, and give a clear verdict on "who's better" questions (weigh peak, career value, and role).
+Never fabricate a stat — if you are not sure, say so.
 
-Current comparison players loaded:
-{chat_pa}: {_get_stats_str(chat_pa)}
-{chat_pb}: {_get_stats_str(chat_pb)}
+CURRENT SEASON = {chat_season}. The live {chat_season} regular-season leaderboards below come from
+the MLB Stats API + FanGraphs (top 12 each; rate stats are qualified). Use THESE numbers for any
+"who leads / most this season / league leader" question rather than your training data.
 
-MLB Averages ({chat_season}): {HIT_AVG if chat_mode == 'Hitters' else PIT_AVG}
+HITTING LEADERS ({chat_season}):
+{_hit_block}
 
-You can also discuss any other MLB players in general based on your training knowledge."""
+PITCHING LEADERS ({chat_season}):
+{_pit_block}
+
+For career totals, all-time/active leaders, awards, and Hall-of-Fame type questions, use your
+baseball knowledge. If a player's exact {chat_season} line is needed and provided below in a
+"Players referenced" note, prefer those numbers."""
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
@@ -957,22 +999,44 @@ You can also discuss any other MLB players in general based on your training kno
                              avatar="🧑" if msg["role"] == "user" else "⚾"):
             st.markdown(msg["content"])
 
-    def _find_mentioned_players(msg):
-        """Return stats string for any player names detected in the message."""
-        msg_lower = msg.lower()
-        found = []
-        already = {chat_pa.lower(), chat_pb.lower()}
-        for name in chat_fg["Name"].dropna().unique():
-            if name.lower() in already:
-                continue
-            parts = [p for p in name.lower().split() if len(p) > 3]
-            if any(p in msg_lower for p in parts):
-                rows = chat_fg[chat_fg["Name"] == name].sort_values("Season", ascending=False)
-                if not rows.empty:
-                    found.append(f"{name}: {_get_stats_str(name)}")
-        return found
+    def _fmtnum(v):
+        try:
+            f = float(v)
+            if f == int(f): return str(int(f))
+            return f"{f:.3f}" if abs(f) < 1 else f"{f:.2f}"
+        except Exception:
+            return str(v)
 
-    if prompt := st.chat_input(f"Ask about any MLB player..."):
+    def _stats_line(name):
+        out = []
+        if not hit_fg.empty and name in set(hit_fg["Name"]):
+            r = hit_fg[hit_fg["Name"] == name].sort_values("Season").iloc[-1]
+            ks = [k for k in ["AVG","OBP","SLG","OPS","HR","2B","RBI","SB","wRC+","WAR","BB%","K%"]
+                  if k in r.index and pd.notna(r.get(k))]
+            if ks: out.append("hitting " + ", ".join(f"{k}={_fmtnum(r[k])}" for k in ks))
+        if not pit_fg.empty and name in set(pit_fg["Name"]):
+            r = pit_fg[pit_fg["Name"] == name].sort_values("Season").iloc[-1]
+            ks = [k for k in ["W","L","SV","IP","ERA","WHIP","K/9","K%","BB%","FIP","WAR"]
+                  if k in r.index and pd.notna(r.get(k))]
+            if ks: out.append("pitching " + ", ".join(f"{k}={_fmtnum(r[k])}" for k in ks))
+        return f"{name} ({chat_season}): " + " | ".join(out) if out else ""
+
+    def _find_mentioned_players(msg):
+        ml = msg.lower()
+        names = set()
+        if not hit_fg.empty: names |= set(hit_fg["Name"].dropna())
+        if not pit_fg.empty: names |= set(pit_fg["Name"].dropna())
+        found = []
+        for name in names:
+            toks = name.lower().split()
+            if len(toks) < 2: continue
+            last = toks[-1]
+            if len(last) >= 4 and last in ml:
+                line = _stats_line(name)
+                if line: found.append(line)
+        return found[:6]
+
+    if prompt := st.chat_input("Ask any baseball question..."):
         st.session_state.chat_history.append({"role": "user", "content": prompt})
         with st.chat_message("user", avatar="🧑"):
             st.markdown(prompt)
@@ -983,11 +1047,11 @@ You can also discuss any other MLB players in general based on your training kno
                     extra = _find_mentioned_players(prompt)
                     dynamic_sys = sys_prompt
                     if extra:
-                        dynamic_sys += "\n\nAdditional players mentioned in this query:\n" + "\n".join(extra)
+                        dynamic_sys += "\n\nPlayers referenced (live " + str(chat_season) + " lines):\n" + "\n".join(extra)
                     client = _anthropic.Anthropic(api_key=_ANT_KEY)
                     resp = client.messages.create(
-                        model="claude-haiku-4-5-20251001",
-                        max_tokens=700,
+                        model="claude-sonnet-4-6",
+                        max_tokens=900,
                         system=dynamic_sys,
                         messages=[{"role": m["role"], "content": m["content"]}
                                   for m in st.session_state.chat_history],
@@ -1080,7 +1144,32 @@ if app_mode == "Scouting Report":
             f'</div>'
         )
 
-    def _ofp_role(g):
+    def _ofp_role(g, grades=None):
+        if mode == "Hitters":
+            if   g>=70: tier = "Perennial All-Star"
+            elif g>=65: tier = "All-Star Regular"
+            elif g>=60: tier = "Above-Avg Everyday Regular"
+            elif g>=55: tier = "Solid Everyday Regular"
+            elif g>=50: tier = "Average Regular / Platoon"
+            elif g>=45: tier = "Bench Bat / Fringe Regular"
+            elif g>=40: tier = "Bench / Org Depth"
+            else:       tier = "Org Depth"
+            tags = []
+            if grades:
+                hit = grades.get("Hit", 50); pwr = grades.get("Power", 50)
+                spd = grades.get("Speed", 50)
+                if pwr >= 60: tags.append("home-run power")
+                elif pwr >= 55: tags.append("doubles power")
+                if hit >= 60: tags.append("plus contact hitter")
+                elif hit >= 55: tags.append("solid contact")
+                if spd >= 60: tags.append("plus speed")
+                if not tags:
+                    _top = max([("contact", hit), ("power", pwr), ("speed", spd)],
+                               key=lambda x: x[1])
+                    tags.append({"contact": "contact-oriented bat",
+                                 "power": "power-leaning bat",
+                                 "speed": "speed/athleticism"}[_top[0]])
+            return f"{tier} · {', '.join(tags)}" if tags else tier
         if g>=70: return "Franchise Cornerstone"
         if g>=65: return "No. 1 Starter / All-Star"
         if g>=60: return "No. 2 Starter / Above Avg Regular"
@@ -1503,14 +1592,35 @@ hits.forEach(function(h){{
             _ba_agg["pname"] = _ba_agg["pitch_type"].map(PITCH_NAMES).fillna(_ba_agg["pitch_type"])
             _ba_c1, _ba_c2 = st.columns([2, 3])
             with _ba_c1:
+                # ── Bat-angle illustration (bat tilted at the attack angle) ──────────
+                _rad = math.radians(_ba_overall)
+                _px, _py, _L, _r = 55.0, 150.0, 200.0, 50.0
+                _ex = _px + math.cos(_rad) * _L;        _ey = _py - math.sin(_rad) * _L
+                _bx = _px + math.cos(_rad) * _L * 0.60; _by = _py - math.sin(_rad) * _L * 0.60
+                _asx, _asy = _px + _r, _py
+                _aex, _aey = _px + math.cos(_rad) * _r, _py - math.sin(_rad) * _r
+                _arc = f"M {_asx:.1f} {_asy:.1f} A {_r} {_r} 0 0 0 {_aex:.1f} {_aey:.1f}"
+                _lx = _px + math.cos(_rad / 2) * (_r + 18)
+                _ly = _py - math.sin(_rad / 2) * (_r + 18)
+                _svg = (
+                    f'<svg viewBox="0 0 300 200" width="100%" style="max-height:190px;display:block;margin:auto">'
+                    f'<line x1="55" y1="150" x2="288" y2="150" stroke="#8B9EC4" stroke-width="1.3" stroke-dasharray="5 4"/>'
+                    f'<text x="288" y="166" fill="#8B9EC4" font-size="9" text-anchor="end">level (0°)</text>'
+                    f'<path d="{_arc}" fill="none" stroke="#C8102E" stroke-width="1.6"/>'
+                    f'<text x="{_lx:.1f}" y="{_ly:.1f}" fill="#C8102E" font-size="14" font-weight="700" text-anchor="middle">{_ba_overall}°</text>'
+                    f'<line x1="55" y1="150" x2="{_bx:.1f}" y2="{_by:.1f}" stroke="#9A7B3F" stroke-width="5" stroke-linecap="round"/>'
+                    f'<line x1="{_bx:.1f}" y1="{_by:.1f}" x2="{_ex:.1f}" y2="{_ey:.1f}" stroke="#E8C97A" stroke-width="10" stroke-linecap="round"/>'
+                    f'<circle cx="55" cy="150" r="6" fill="#F4F8FF"/>'
+                    f'</svg>'
+                )
                 st.markdown(
                     f'<div style="background:#0F1E32;border:1px solid #1A2E47;border-radius:12px;'
-                    f'padding:40px 24px;text-align:center;margin-top:8px">'
+                    f'padding:18px 16px 14px;margin-top:8px">'
                     f'<div style="font-size:.62rem;color:#C8102E;font-weight:700;letter-spacing:2px;'
-                    f'text-transform:uppercase;margin-bottom:10px">Average Bat Angle</div>'
-                    f'<div style="font-size:3.2rem;font-weight:900;color:#F4F8FF;font-family:monospace">'
-                    f'{_ba_overall}°</div>'
-                    f'<div style="font-size:.78rem;color:#8B9EC4;margin-top:6px">attack angle at contact</div>'
+                    f'text-transform:uppercase;text-align:center;margin-bottom:6px">Average Bat Angle</div>'
+                    f'{_svg}'
+                    f'<div style="font-size:.74rem;color:#8B9EC4;text-align:center;margin-top:4px">'
+                    f'attack angle of the bat at contact</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -1558,7 +1668,7 @@ hits.forEach(function(h){{
                 unsafe_allow_html=True
             )
         with _ofp_col:
-            _role_str = _ofp_role(ofp)
+            _role_str = _ofp_role(ofp, grades)
             st.markdown(
                 f'<div style="background:#0F1E32;border-radius:12px;padding:28px 20px;'
                 f'border:1px solid #1A2E47;display:flex;flex-direction:column;'
@@ -1709,44 +1819,53 @@ hits.forEach(function(h){{
                         # pitcher's POV — flip horizontal release (release_pos_x is catcher's view)
                         _arm_grp["relx"] = -_arm_grp["rx"]
                         _arm_grp["pname"] = _arm_grp["pitch_type"].map(PITCH_NAMES).fillna(_arm_grp["pitch_type"])
-                        _arm_series = []
+                        # Arm angle drawn as straight lines radiating from the 0° axis (origin)
+                        _sign = 1.0 if _hand == "R" else -1.0
+                        _L = 6.0
+                        _line_series, _end_pts = [], []
                         for _ai, _arw in enumerate(_arm_grp.itertuples(index=False)):
                             _ac = _PT_CLR[_ai % len(_PT_CLR)]
-                            _asz = max(14, min(46, int(_arw.n / 15)))
-                            _alab = (f"{_arw.pname} · {round(float(_arw.aa),0):.0f}°"
-                                     if "aa" in _arm_grp.columns else _arw.pname)
-                            _arm_series.append({
-                                "name": _arw.pname, "type": "scatter",
-                                "data": [[round(float(_arw.relx),2), round(float(_arw.rz),2)]],
-                                "symbolSize": _asz, "itemStyle": {"color": _ac},
-                                "label": {"show": True, "position": "top",
-                                          "formatter": _alab, "fontSize": 9, "color": TEXT},
+                            _ang = (float(_arw.aa) if "aa" in _arm_grp.columns
+                                    else math.degrees(math.atan2(float(_arw.rz), abs(float(_arw.relx)) or 0.01)))
+                            _rad = math.radians(_ang)
+                            _ux = round(_sign * math.cos(_rad) * _L, 2)
+                            _uy = round(math.sin(_rad) * _L, 2)
+                            _line_series.append({
+                                "name": _arw.pname, "type": "line",
+                                "data": [[0, 0], [_ux, _uy]],
+                                "symbol": "none", "lineStyle": {"color": _ac, "width": 3}, "z": 2,
                             })
+                            _end_pts.append({
+                                "value": [_ux, _uy], "itemStyle": {"color": _ac},
+                                "label": {"show": True,
+                                          "position": "right" if _sign > 0 else "left",
+                                          "formatter": f"{_arw.pname}  {round(_ang)}°",
+                                          "fontSize": 9, "color": TEXT},
+                            })
+                        _xaxis = {
+                            "type":"value","name":"0° = sidearm  ·  90° = over-the-top",
+                            "nameLocation":"center","nameGap":24,
+                            "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
+                            "axisLabel":{"show":False},"splitLine":{"show":False},
+                            "axisTick":{"show":False},
+                            "axisLine":{"lineStyle":{"color":SUBTEXT,"width":1.4}},
+                        }
+                        if _sign > 0: _xaxis["min"] = 0
+                        else:         _xaxis["max"] = 0
                         ech({
-                            **_base(f"Release Point by Pitch ({_hand}HP — pitcher's view, ft)"),
+                            **_base(f"Arm Angle by Pitch ({_hand}HP — pitcher's view)"),
                             "legend": {"show": False},
-                            "grid": {"left":"12%","right":"8%","top":"16%","bottom":"14%"},
-                            "xAxis": {
-                                "type":"value","name":"Horiz. Release (ft)",
-                                "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
-                                "nameLocation":"center","nameGap":22,
-                                "axisLabel":{"color":SUBTEXT,"fontSize":9},
-                                "splitLine":{"lineStyle":{"color":LINE_CLR}},
-                                "axisLine":{"lineStyle":{"color":LINE_CLR}},
-                            },
+                            "grid": {"left":"10%","right":"15%","top":"16%","bottom":"16%"},
+                            "xAxis": _xaxis,
                             "yAxis": {
-                                "type":"value","name":"Release Height (ft)",
-                                "nameTextStyle":{"color":SUBTEXT,"fontSize":9},
-                                "axisLabel":{"color":SUBTEXT,"fontSize":9},
-                                "splitLine":{"lineStyle":{"color":LINE_CLR}},
+                                "type":"value","min":0,
+                                "axisLabel":{"show":False},"splitLine":{"show":False},
+                                "axisTick":{"show":False},
                                 "axisLine":{"lineStyle":{"color":LINE_CLR}},
                             },
-                            "series": _arm_series + [{
-                                "type":"scatter","data":[],"silent":True,
-                                "markLine":{"silent":True,"symbol":"none",
-                                            "lineStyle":{"color":SUBTEXT,"type":"dashed","width":1},
-                                            "data":[{"xAxis":0}],"label":{"show":False}},
-                            }],
+                            "series": _line_series + [
+                                {"type":"scatter","data":_end_pts,"symbolSize":8,"z":3},
+                            ],
                         }, height=330)
         else:
             st.markdown(
