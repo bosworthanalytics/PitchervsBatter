@@ -1696,34 +1696,43 @@ hits.forEach(function(h){{
             _ba_agg["pname"] = _ba_agg["pitch_type"].map(PITCH_NAMES).fillna(_ba_agg["pitch_type"])
             _ba_c1, _ba_c2 = st.columns([2, 3])
             with _ba_c1:
-                # ── Bat-angle illustration (mirrored by batter handedness) ───────────
+                # ── Bat-angle illustration (mirrored by handedness) ──────────────────
+                #   Knob/handle rise ABOVE the level line; barrel + ball dip BELOW it.
                 _stand = "R"
                 if "stand" in _ba_raw.columns:
                     _sv = _ba_raw["stand"].dropna()
                     if not _sv.empty: _stand = _sv.mode()[0]
-                _dir = -1.0 if _stand == "L" else 1.0
+                _dir = -1.0 if _stand == "L" else 1.0      # +1 = RHB, -1 = LHB (mirrored)
                 _hand_txt = ("Left-Handed Batter" if _stand == "L"
                              else "Right-Handed Batter" if _stand == "R" else "Switch Hitter")
                 _rad = math.radians(_ba_overall)
-                _Vx, _Vy, _L, _r = (228.0 if _dir < 0 else 72.0), 145.0, 178.0, 46.0
-                _lvx = max(14.0, min(286.0, _Vx + _dir * 214))
-                _ex = _Vx + _dir * math.cos(_rad) * _L;        _ey = _Vy - math.sin(_rad) * _L
-                _bx = _Vx + _dir * math.cos(_rad) * _L * 0.55; _by = _Vy - math.sin(_rad) * _L * 0.55
-                _asx, _asy = _Vx + _dir * _r, _Vy
-                _aex, _aey = _Vx + _dir * math.cos(_rad) * _r, _Vy - math.sin(_rad) * _r
-                _sweep = 0 if _dir > 0 else 1
-                _arc = f"M {_asx:.1f} {_asy:.1f} A {_r} {_r} 0 0 {_sweep} {_aex:.1f} {_aey:.1f}"
-                _lvl_anchor = "start" if _dir < 0 else "end"
-                _lx = _Vx + _dir * 30
+                _Vx, _Vy = 150.0 + _dir * 34, 108.0       # contact point, on the level line
+                _HL, _BL, _r = 132.0, 58.0, 42.0
+                # unit vectors: handle goes up-and-back (toward body); barrel goes down-and-out
+                _kux, _kuy = -_dir * math.cos(_rad), -math.sin(_rad)   # toward knob (above line)
+                _bux, _buy =  _dir * math.cos(_rad),  math.sin(_rad)   # toward barrel (below line)
+                _Kx, _Ky = _Vx + _kux * _HL, _Vy + _kuy * _HL          # knob (top)
+                _Bx, _By = _Vx + _bux * _BL, _Vy + _buy * _BL          # barrel tip (bottom)
+                _Px, _Py = _Vx + _kux * _HL * 0.26, _Vy + _kuy * _HL * 0.26  # barrel→handle junction
+                _ballx, _bally = _Vx + _bux * (_BL + 3), _Vy + _buy * (_BL + 3)
+                # angle arc (sampled, between the level line and the handle) — no sweep ambiguity
+                _apts = []
+                for _i in range(13):
+                    _phi = _rad * _i / 12.0
+                    _apts.append((_Vx - _dir * math.cos(_phi) * _r, _Vy - math.sin(_phi) * _r))
+                _arc = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in _apts)
+                _llx = 20.0 if _dir > 0 else 280.0
+                _lvl_anchor = "start" if _dir > 0 else "end"
                 _svg = (
                     f'<svg viewBox="0 0 300 200" width="100%" style="max-height:190px;display:block;margin:auto">'
-                    f'<line x1="{_Vx:.0f}" y1="{_Vy:.0f}" x2="{_lvx:.0f}" y2="{_Vy:.0f}" stroke="#8B9EC4" stroke-width="1.3" stroke-dasharray="5 4"/>'
-                    f'<text x="{_lvx:.0f}" y="{_Vy+14:.0f}" fill="#8B9EC4" font-size="9" text-anchor="{_lvl_anchor}">level (0°)</text>'
+                    f'<line x1="16" y1="{_Vy:.0f}" x2="284" y2="{_Vy:.0f}" stroke="#8B9EC4" stroke-width="1.3" stroke-dasharray="5 4"/>'
+                    f'<text x="{_llx:.0f}" y="{_Vy+14:.0f}" fill="#8B9EC4" font-size="9" text-anchor="{_lvl_anchor}">level (0°)</text>'
                     f'<path d="{_arc}" fill="none" stroke="#C8102E" stroke-width="1.8"/>'
-                    f'<line x1="{_Vx:.1f}" y1="{_Vy:.1f}" x2="{_bx:.1f}" y2="{_by:.1f}" stroke="#9A7B3F" stroke-width="5" stroke-linecap="round"/>'
-                    f'<line x1="{_bx:.1f}" y1="{_by:.1f}" x2="{_ex:.1f}" y2="{_ey:.1f}" stroke="#E8C97A" stroke-width="10" stroke-linecap="round"/>'
-                    f'<circle cx="{_Vx:.0f}" cy="{_Vy:.0f}" r="6" fill="#F4F8FF"/>'
-                    f'<text x="{_lx:.1f}" y="{_Vy+27:.0f}" fill="#C8102E" font-size="17" font-weight="800" text-anchor="middle">{_ba_overall}°</text>'
+                    f'<line x1="{_Bx:.1f}" y1="{_By:.1f}" x2="{_Px:.1f}" y2="{_Py:.1f}" stroke="#E8C97A" stroke-width="11" stroke-linecap="round"/>'
+                    f'<line x1="{_Px:.1f}" y1="{_Py:.1f}" x2="{_Kx:.1f}" y2="{_Ky:.1f}" stroke="#9A7B3F" stroke-width="5" stroke-linecap="round"/>'
+                    f'<circle cx="{_Kx:.1f}" cy="{_Ky:.1f}" r="5" fill="#9A7B3F"/>'
+                    f'<circle cx="{_ballx:.1f}" cy="{_bally:.1f}" r="6" fill="#F4F8FF"/>'
+                    f'<text x="{_Vx - _dir*40:.1f}" y="{_Vy+26:.0f}" fill="#C8102E" font-size="17" font-weight="800" text-anchor="middle">{_ba_overall}°</text>'
                     f'</svg>'
                 )
                 st.markdown(
