@@ -9,7 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
-import json, math
+import json, math, difflib, unicodedata
 
 PB_IMPORT_ERROR = None
 try:
@@ -1191,20 +1191,36 @@ baseball knowledge. Never invent a number with a "~" estimate if real data is in
         head = name + (f" ({'; '.join(meta)})" if meta else "")
         return head + " — " + " | ".join(segs)
 
+    def _norm(s):
+        # lowercase + strip accents so "josé" == "jose"
+        return "".join(c for c in unicodedata.normalize("NFKD", str(s).lower())
+                       if not unicodedata.combining(c))
+
     def _mentioned_names(msg):
-        ml = msg.lower()
+        ml = _norm(msg)
+        mtoks = [t.strip(".,!?;:()'\"") for t in ml.split()]
+        mtoks = [t for t in mtoks if t]
         names = set()
         for df in (hit_fg, pit_fg, fld_basic):
             if not df.empty: names |= set(df["Name"].dropna())
+
+        def _best(target):
+            return max((difflib.SequenceMatcher(None, t, target).ratio() for t in mtoks),
+                       default=0.0)
+
         matched = []
         for name in names:
-            toks = name.lower().split()
+            toks = _norm(name).split()
             if len(toks) < 2: continue
             first, last = toks[0], toks[-1]
-            # full name present, OR first+last both present (handles short last names like "Lee"),
-            # OR a distinctive last name on its own
-            if name.lower() in ml or (first in ml and last in ml) or (len(last) >= 5 and last in ml):
-                matched.append(name)
+            # exact substring fast path
+            if _norm(name) in ml or (first in ml and last in ml) or (len(last) >= 5 and last in ml):
+                matched.append(name); continue
+            # fuzzy path — tolerate typos like "rafaella"/"cedanne"
+            if len(last) >= 5:
+                bl = _best(last)
+                if bl >= 0.9 or (bl >= 0.82 and _best(first) >= 0.7):
+                    matched.append(name)
         return list(dict.fromkeys(matched))[:8]
 
     def _find_mentioned_players(names):
