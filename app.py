@@ -1191,7 +1191,7 @@ baseball knowledge. Never invent a number with a "~" estimate if real data is in
         head = name + (f" ({'; '.join(meta)})" if meta else "")
         return head + " — " + " | ".join(segs)
 
-    def _find_mentioned_players(msg):
+    def _mentioned_names(msg):
         ml = msg.lower()
         names = set()
         for df in (hit_fg, pit_fg, fld_basic):
@@ -1205,12 +1205,49 @@ baseball knowledge. Never invent a number with a "~" estimate if real data is in
             # OR a distinctive last name on its own
             if name.lower() in ml or (first in ml and last in ml) or (len(last) >= 5 and last in ml):
                 matched.append(name)
-        matched = list(dict.fromkeys(matched))[:8]
+        return list(dict.fromkeys(matched))[:8]
+
+    def _find_mentioned_players(names):
         out = []
-        for nm in matched:
+        for nm in names:
             block = [x for x in (_career_str(nm), _stats_line(nm)) if x]
             if block: out.append("\n".join(block))
         return out
+
+    def _career_table_md(names):
+        """Deterministic, accurate career-stats table straight from the MLB API."""
+        data = {}
+        for nm in names:
+            mid = _mlbam_for(nm)
+            if mid:
+                c = get_player_career(mid)
+                if c: data[nm] = c
+        if not data:
+            return ""
+        cols = list(data.keys())
+        blocks = []
+        def _table(title, rows, grp):
+            present = [nm for nm in cols if data[nm].get(grp)]
+            if len(present) < 1 or (len(cols) >= 2 and len(present) < 2):
+                return ""
+            hdr = "| Metric | " + " | ".join(present) + " |"
+            sep = "|" + "---|" * (len(present) + 1)
+            lines = [f"**{title}**", "", hdr, sep]
+            for lab, key in rows:
+                vals = [str((data[nm].get(grp) or {}).get(key, "—")) for nm in present]
+                lines.append(f"| {lab} | " + " | ".join(vals) + " |")
+            return "\n".join(lines)
+        _hit_rows = [("Games","gamesPlayed"),("PA","plateAppearances"),("AVG","avg"),
+                     ("OBP","obp"),("SLG","slg"),("OPS","ops"),("HR","homeRuns"),
+                     ("RBI","rbi"),("SB","stolenBases"),("BB","baseOnBalls"),("SO","strikeOuts")]
+        _pit_rows = [("Games","gamesPlayed"),("GS","gamesStarted"),("W","wins"),("L","losses"),
+                     ("SV","saves"),("IP","inningsPitched"),("ERA","era"),("WHIP","whip"),
+                     ("SO","strikeOuts"),("HR","homeRuns")]
+        for t, r, g in [("Career Hitting (official MLB stats)", _hit_rows, "hitting"),
+                        ("Career Pitching (official MLB stats)", _pit_rows, "pitching")]:
+            tb = _table(t, r, g)
+            if tb: blocks.append(tb)
+        return "\n\n".join(blocks)
 
     if prompt := st.chat_input("Ask any baseball question..."):
         st.session_state.chat_history.append({"role": "user", "content": prompt})
@@ -1220,10 +1257,18 @@ baseball knowledge. Never invent a number with a "~" estimate if real data is in
         with st.chat_message("assistant", avatar="⚾"):
             with st.spinner("Analyzing..."):
                 try:
-                    extra = _find_mentioned_players(prompt)
+                    _names = _mentioned_names(prompt)
+                    extra = _find_mentioned_players(_names)
+                    _table_md = _career_table_md(_names) if _names else ""
                     dynamic_sys = sys_prompt
                     if extra:
                         dynamic_sys += "\n\nPLAYERS REFERENCED (real career totals + current line):\n\n" + "\n\n".join(extra)
+                    if _table_md:
+                        dynamic_sys += ("\n\nAn ACCURATE career stats table is already being shown "
+                                        "to the user above your reply. Do NOT output your own stats "
+                                        "table or restate the raw numbers. Give a short written "
+                                        "verdict and analysis that is fully consistent with those "
+                                        "exact numbers (e.g., note who leads in HR, OPS, etc.).")
                     client = _anthropic.Anthropic(api_key=_ANT_KEY)
                     resp = client.messages.create(
                         model="claude-haiku-4-5-20251001",
@@ -1235,8 +1280,10 @@ baseball knowledge. Never invent a number with a "~" estimate if real data is in
                     answer = resp.content[0].text
                 except Exception as e:
                     answer = f"Error connecting to AI: {e}"
-                st.markdown(answer)
-                st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                    _table_md = ""
+                final = (f"{_table_md}\n\n---\n\n{answer}" if _table_md else answer)
+                st.markdown(final)
+                st.session_state.chat_history.append({"role": "assistant", "content": final})
 
     if st.session_state.chat_history:
         if st.button("Clear Chat", key="clear_chat"):
