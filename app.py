@@ -1714,7 +1714,7 @@ hits.forEach(function(h){{
                 _Kx, _Ky = _Vx + _kux * _HL, _Vy + _kuy * _HL          # knob (top)
                 _Bx, _By = _Vx + _bux * _BL, _Vy + _buy * _BL          # barrel tip (bottom)
                 _Px, _Py = _Vx + _kux * _HL * 0.26, _Vy + _kuy * _HL * 0.26  # barrel→handle junction
-                _ballx, _bally = _Vx + _bux * (_BL + 3), _Vy + _buy * (_BL + 3)
+                _ballx, _bally = (_Bx + _Px) / 2, (_By + _Py) / 2   # halfway up the barrel
                 # angle arc (sampled, between the level line and the handle) — no sweep ambiguity
                 _apts = []
                 for _i in range(13):
