@@ -1050,7 +1050,7 @@ baseball knowledge. If a player's exact {chat_season} line is needed and provide
                         dynamic_sys += "\n\nPlayers referenced (live " + str(chat_season) + " lines):\n" + "\n".join(extra)
                     client = _anthropic.Anthropic(api_key=_ANT_KEY)
                     resp = client.messages.create(
-                        model="claude-sonnet-4-6",
+                        model="claude-haiku-4-5-20251001",
                         max_tokens=900,
                         system=dynamic_sys,
                         messages=[{"role": m["role"], "content": m["content"]}
