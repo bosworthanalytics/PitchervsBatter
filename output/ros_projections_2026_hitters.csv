@@ -1,0 +1,392 @@
+name,team,age,pre_PA,pre_wOBA,prior_wOBA,marcel_wOBA,proj_wOBA,model,mlbam
+Nick Kurtz,Athletics,23,375.0,0.4013,0.4149,0.3993,0.3928,Ridge regression,701762
+Aaron Judge,New York Yankees,34,261.0,0.3789,0.4585,0.3874,0.3899,Ridge regression,592450
+Shohei Ohtani,Los Angeles Dodgers,31,349.0,0.3975,0.4137,0.3883,0.3846,Ridge regression,660271
+Yordan Alvarez,Houston Astros,29,366.0,0.4262,0.3354,0.3896,0.3824,Ridge regression,670541
+Kyle Schwarber,Philadelphia Phillies,33,356.0,0.4002,0.3875,0.3815,0.3819,Ridge regression,656941
+Juan Soto,New York Mets,27,277.0,0.405,0.3866,0.3879,0.3806,Ridge regression,665742
+Junior Caminero,Tampa Bay Rays,22,354.0,0.3896,0.353,0.3769,0.3729,Ridge regression,691406
+James Wood,Washington Nationals,23,396.0,0.3738,0.35,0.366,0.3717,Ridge regression,695578
+Munetaka Murakami,Chicago White Sox,26,246.0,0.3901,,0.3561,0.3705,Ridge regression,808959
+Ben Rice,New York Yankees,27,330.0,0.3911,0.3553,0.3727,0.3667,Ridge regression,700250
+Bryce Harper,Philadelphia Phillies,33,350.0,0.3795,0.358,0.3607,0.3643,Ridge regression,547180
+Mike Trout,Los Angeles Angels,34,335.0,0.3695,0.3405,0.3485,0.3637,Ridge regression,545361
+Jonathan Aranda,Tampa Bay Rays,28,349.0,0.3669,0.3784,0.3628,0.3559,Ridge regression,666018
+Hunter Goodman,Colorado Rockies,26,328.0,0.351,0.3555,0.3488,0.3553,Ridge regression,696100
+Corbin Carroll,Arizona Diamondbacks,25,341.0,0.3751,0.368,0.3683,0.3551,Ridge regression,682998
+Pete Alonso,Baltimore Orioles,31,368.0,0.3484,0.3651,0.3447,0.3548,Ridge regression,624413
+Matt Olson,Atlanta Braves,32,353.0,0.3624,0.3636,0.3522,0.3545,Ridge regression,621566
+Tyler Soderstrom,Athletics,24,335.0,0.3416,0.3508,0.3437,0.353,Ridge regression,691016
+Byron Buxton,Minnesota Twins,32,329.0,0.3742,0.363,0.3592,0.3527,Ridge regression,621439
+Sal Stewart,Cincinnati Reds,22,352.0,0.339,0.3509,0.3441,0.3513,Ridge regression,701398
+Miguel Vargas,Chicago White Sox,26,351.0,0.3692,0.3121,0.3495,0.3506,Ridge regression,678246
+Carter Jensen,Kansas City Royals,22,300.0,0.3213,0.3996,0.3471,0.3493,Ridge regression,695600
+Ronald Acuña Jr.,Atlanta Braves,28,236.0,0.3457,0.3999,0.3575,0.3482,Ridge regression,660670
+Shea Langeliers,Athletics,28,343.0,0.3525,0.3604,0.3491,0.3481,Ridge regression,669127
+Colson Montgomery,Chicago White Sox,24,328.0,0.335,0.3515,0.3398,0.348,Ridge regression,695657
+Freddie Freeman,Los Angeles Dodgers,36,350.0,0.3745,0.3669,0.3567,0.3469,Ridge regression,518692
+Max Muncy,Los Angeles Dodgers,35,290.0,0.3707,0.3633,0.3534,0.3469,Ridge regression,571970
+Brice Turang,Milwaukee Brewers,26,350.0,0.3477,0.3441,0.3439,0.3468,Ridge regression,668930
+José Ramírez,Cleveland Guardians,33,314.0,0.3232,0.3567,0.325,0.3467,Ridge regression,608070
+Brandon Lowe,Pittsburgh Pirates,31,341.0,0.3497,0.3314,0.3368,0.3462,Ridge regression,664040
+Cody Bellinger,New York Yankees,30,348.0,0.3522,0.3447,0.3429,0.3457,Ridge regression,641355
+Yandy Díaz,Tampa Bay Rays,34,341.0,0.3971,0.3617,0.3715,0.3457,Ridge regression,650490
+Bobby Witt Jr.,Kansas City Royals,26,350.0,0.3504,0.3575,0.349,0.3451,Ridge regression,677951
+Ian Happ,Chicago Cubs,31,350.0,0.3381,0.331,0.3294,0.3446,Ridge regression,664023
+Dominic Canzone,Seattle Mariners,28,215.0,0.3745,0.36,0.3596,0.3443,Ridge regression,686527
+Jake Bauers,Milwaukee Brewers,30,286.0,0.3675,0.3306,0.347,0.3442,Ridge regression,641343
+Ryan Jeffers,Minnesota Twins,29,148.0,0.4035,0.3312,0.3566,0.3437,Ridge regression,680777
+Pete Crow-Armstrong,Chicago Cubs,24,364.0,0.3687,0.3204,0.3537,0.3436,Ridge regression,691718
+Ketel Marte,Arizona Diamondbacks,32,347.0,0.3343,0.3775,0.3379,0.3434,Ridge regression,606466
+Michael Busch,Chicago Cubs,28,370.0,0.3362,0.3653,0.3398,0.3424,Ridge regression,683737
+CJ Abrams,Washington Nationals,25,346.0,0.3664,0.3212,0.3508,0.3423,Ridge regression,682928
+Iván Herrera,St. Louis Cardinals,26,365.0,0.3567,0.362,0.3543,0.3422,Ridge regression,671056
+Rafael Devers,San Francisco Giants,29,347.0,0.3184,0.3622,0.3269,0.3418,Ridge regression,646240
+Willson Contreras,Boston Red Sox,34,329.0,0.3834,0.3417,0.3573,0.3414,Ridge regression,575929
+JJ Bleday,Cincinnati Reds,28,228.0,0.362,0.2996,0.3336,0.3414,Ridge regression,668709
+Alec Burleson,St. Louis Cardinals,27,348.0,0.3503,0.3431,0.3443,0.3412,Ridge regression,676475
+Zach Neto,Los Angeles Angels,25,367.0,0.33,0.3342,0.3311,0.3408,Ridge regression,687263
+Drake Baldwin,Atlanta Braves,25,257.0,0.3484,0.3479,0.3455,0.3398,Ridge regression,686948
+Spencer Horwitz,Pittsburgh Pirates,28,295.0,0.3653,0.3412,0.351,0.3393,Ridge regression,687462
+Dillon Dingler,Detroit Tigers,27,319.0,0.3603,0.3239,0.3449,0.3391,Ridge regression,693307
+Bryan Reynolds,Pittsburgh Pirates,31,358.0,0.3792,0.3125,0.3512,0.3388,Ridge regression,668804
+Geraldo Perdomo,Arizona Diamondbacks,26,337.0,0.3204,0.3675,0.3327,0.3383,Ridge regression,672695
+Andy Pages,Los Angeles Dodgers,25,353.0,0.3402,0.3292,0.3364,0.3377,Ridge regression,681624
+Corey Seager,Texas Rangers,32,219.0,0.2888,0.3626,0.3118,0.3372,Ridge regression,608369
+Manny Machado,San Diego Padres,33,331.0,0.2769,0.3386,0.2911,0.3372,Ridge regression,592518
+Seiya Suzuki,Chicago Cubs,31,289.0,0.3402,0.3404,0.3328,0.3371,Ridge regression,673548
+Trent Grisham,New York Yankees,29,264.0,0.3267,0.3503,0.3299,0.3365,Ridge regression,663757
+Kyle Stowers,Miami Marlins,28,252.0,0.3138,0.3829,0.334,0.3363,Ridge regression,669065
+Gunnar Henderson,Baltimore Orioles,25,385.0,0.3013,0.3371,0.313,0.3361,Ridge regression,683002
+Liam Hicks,Miami Marlins,27,288.0,0.3545,0.3111,0.3368,0.3358,Ridge regression,689414
+Mickey Moniak,Colorado Rockies,28,178.0,0.3698,0.3444,0.3502,0.3355,Ridge regression,666160
+Vladimir Guerrero Jr.,Toronto Blue Jays,27,339.0,0.3051,0.3632,0.321,0.3353,Ridge regression,665489
+Riley Greene,Detroit Tigers,25,353.0,0.3529,0.3402,0.3472,0.3345,Ridge regression,682985
+Kevin McGonigle,Detroit Tigers,21,358.0,0.3596,,0.3485,0.3341,Ridge regression,805808
+Elly De La Cruz,Cincinnati Reds,24,275.0,0.35,0.3301,0.3423,0.3337,Ridge regression,682829
+Spencer Torkelson,Detroit Tigers,26,321.0,0.3169,0.3358,0.3224,0.3337,Ridge regression,679529
+Julio Rodríguez,Seattle Mariners,25,368.0,0.318,0.3381,0.3243,0.3336,Ridge regression,677594
+Jazz Chisholm Jr.,New York Yankees,28,317.0,0.3092,0.346,0.3185,0.3335,Ridge regression,665862
+Kazuma Okamoto,Toronto Blue Jays,30,336.0,0.3354,,0.3237,0.3332,Ridge regression,672960
+Isaac Paredes,Houston Astros,27,331.0,0.3393,0.3498,0.339,0.3331,Ridge regression,670623
+George Springer,Toronto Blue Jays,36,271.0,0.2991,0.4046,0.3231,0.3331,Ridge regression,543807
+Jackson Chourio,Milwaukee Brewers,22,219.0,0.3694,0.3258,0.3516,0.333,Ridge regression,694192
+Christian Walker,Houston Astros,35,351.0,0.3327,0.3078,0.3161,0.3329,Ridge regression,572233
+William Contreras,Milwaukee Brewers,28,332.0,0.3427,0.3295,0.3348,0.3329,Ridge regression,661388
+Kyle Tucker,Los Angeles Dodgers,29,326.0,0.3158,0.3603,0.3252,0.3328,Ridge regression,663656
+Kerry Carpenter,Detroit Tigers,28,193.0,0.3351,0.3313,0.3292,0.3327,Ridge regression,681481
+TJ Rumfield,Colorado Rockies,26,328.0,0.3702,,0.3492,0.3327,Ridge regression,681198
+Daylen Lile,Washington Nationals,23,358.0,0.3011,0.3576,0.3204,0.3322,Ridge regression,695734
+Xavier Edwards,Miami Marlins,26,351.0,0.349,0.307,0.3353,0.3321,Ridge regression,669364
+Cal Raleigh,Seattle Mariners,29,231.0,0.2589,0.3879,0.3062,0.3319,Ridge regression,663728
+Will Smith,Los Angeles Dodgers,31,201.0,0.3168,0.3866,0.3365,0.3315,Ridge regression,669257
+Wilyer Abreu,Boston Red Sox,27,341.0,0.3309,0.3306,0.3287,0.3314,Ridge regression,677800
+JJ Wetherholt,St. Louis Cardinals,23,350.0,0.3374,,0.3322,0.3307,Ridge regression,802139
+Moisés Ballesteros,Chicago Cubs,22,175.0,0.2988,0.3711,0.3329,0.3304,Ridge regression,694208
+Gary Sánchez,Milwaukee Brewers,33,156.0,0.3532,0.3085,0.3227,0.3302,Ridge regression,596142
+Bo Bichette,New York Mets,28,367.0,0.2966,0.3584,0.3125,0.33,Ridge regression,666182
+Taylor Ward,Baltimore Orioles,32,387.0,0.3377,0.3357,0.3296,0.3297,Ridge regression,621493
+Gavin Sheets,San Diego Padres,30,265.0,0.3336,0.3206,0.3239,0.3297,Ridge regression,657757
+Ryan O'Hearn,Pittsburgh Pirates,32,279.0,0.3381,0.3469,0.3324,0.3288,Ridge regression,656811
+Travis Bazzana,Cleveland Guardians,23,226.0,0.3372,,0.3294,0.3284,Ridge regression,683953
+Brent Rooker,Athletics,31,203.0,0.288,0.3459,0.3077,0.3281,Ridge regression,667670
+Brandon Marsh,Philadelphia Phillies,28,309.0,0.3651,0.3369,0.3501,0.3274,Ridge regression,669016
+Oneil Cruz,Pittsburgh Pirates,27,283.0,0.3517,0.2924,0.3296,0.3273,Ridge regression,665833
+Paul Goldschmidt,New York Yankees,38,224.0,0.3813,0.3141,0.3383,0.3272,Ridge regression,502671
+Vinnie Pasquantino,Kansas City Royals,28,291.0,0.2881,0.337,0.304,0.3271,Ridge regression,686469
+Gabriel Moreno,Arizona Diamondbacks,26,219.0,0.3457,0.3375,0.3391,0.3269,Ridge regression,672515
+Spencer Steer,Cincinnati Reds,28,308.0,0.3229,0.3134,0.318,0.3266,Ridge regression,668715
+Josh Naylor,Seattle Mariners,29,338.0,0.2999,0.3483,0.3118,0.3266,Ridge regression,647304
+Daulton Varsho,Toronto Blue Jays,29,267.0,0.3237,0.3412,0.3254,0.3265,Ridge regression,662139
+Alex Bregman,Chicago Cubs,32,375.0,0.2996,0.353,0.3089,0.3265,Ridge regression,608324
+Carlos Cortes,Athletics,29,207.0,0.3444,0.3599,0.343,0.3262,Ridge regression,666126
+Nathaniel Lowe,Cincinnati Reds,30,202.0,0.351,0.2991,0.3241,0.3261,Ridge regression,663993
+Luis García Jr.,Washington Nationals,26,270.0,0.3554,0.2977,0.3337,0.3259,Ridge regression,671277
+Curtis Mead,Washington Nationals,25,247.0,0.3376,0.2766,0.3171,0.3254,Ridge regression,678554
+Ozzie Albies,Atlanta Braves,29,347.0,0.3263,0.2926,0.3141,0.325,Ridge regression,645277
+Wyatt Langford,Texas Rangers,24,173.0,0.3492,0.3346,0.3407,0.3243,Ridge regression,694671
+Colt Emerson,Seattle Mariners,20,125.0,0.3167,,0.3208,0.3243,Ridge regression,806068
+Mookie Betts,Los Angeles Dodgers,33,209.0,0.3107,0.3157,0.3066,0.3243,Ridge regression,605141
+Fernando Tatis Jr.,San Diego Padres,27,348.0,0.3131,0.3507,0.3226,0.3243,Ridge regression,665487
+Gleyber Torres,Detroit Tigers,29,190.0,0.3498,0.3297,0.3348,0.324,Ridge regression,650402
+Joc Pederson,Texas Rangers,34,263.0,0.343,0.2743,0.3112,0.3239,Ridge regression,592626
+Chase DeLauter,Cleveland Guardians,24,275.0,0.3249,,0.3225,0.3238,Ridge regression,800050
+Lars Nootbaar,St. Louis Cardinals,28,81.0,0.3694,0.3023,0.3227,0.3235,Ridge regression,663457
+Randy Arozarena,Seattle Mariners,31,327.0,0.3532,0.3298,0.3383,0.3231,Ridge regression,668227
+Brandon Valenzuela,Toronto Blue Jays,25,168.0,0.3281,,0.3214,0.3231,Ridge regression,678218
+Jackson Merrill,San Diego Padres,23,330.0,0.2685,0.3286,0.2933,0.3231,Ridge regression,701538
+Jeremy Peña,Houston Astros,28,202.0,0.3465,0.3604,0.3452,0.3228,Ridge regression,665161
+Jordan Walker,St. Louis Cardinals,24,338.0,0.3633,0.2587,0.3334,0.3228,Ridge regression,691023
+J.P. Crawford,Seattle Mariners,31,283.0,0.3161,0.3207,0.3129,0.3226,Ridge regression,641487
+Heriberto Hernández,Miami Marlins,26,184.0,0.2943,0.3387,0.3143,0.3225,Ridge regression,681715
+Dansby Swanson,Chicago Cubs,32,311.0,0.284,0.3071,0.2886,0.3225,Ridge regression,621020
+Ramón Laureano,San Diego Padres,31,206.0,0.2872,0.3613,0.3124,0.3225,Ridge regression,657656
+Jarren Duran,Boston Red Sox,29,330.0,0.2651,0.3326,0.2862,0.3225,Ridge regression,680776
+Willy Adames,San Francisco Giants,30,338.0,0.3007,0.3182,0.3035,0.3224,Ridge regression,642715
+Jakob Marsee,Miami Marlins,25,340.0,0.2824,0.3608,0.308,0.3224,Ridge regression,805300
+Kyle Manzardo,Cleveland Guardians,25,264.0,0.3111,0.3265,0.3179,0.3224,Ridge regression,700932
+Adley Rutschman,Baltimore Orioles,28,232.0,0.3366,0.2959,0.319,0.3222,Ridge regression,668939
+Kody Clemens,Minnesota Twins,30,278.0,0.3323,0.3038,0.3184,0.3222,Ridge regression,665019
+Francisco Alvarez,New York Mets,24,193.0,0.3181,0.3403,0.3281,0.3221,Ridge regression,682626
+Matt Chapman,San Francisco Giants,33,340.0,0.3088,0.3337,0.3096,0.3219,Ridge regression,656305
+Brandon Nimmo,Texas Rangers,33,354.0,0.3254,0.3263,0.3182,0.3218,Ridge regression,607043
+Luke Keaschall,Minnesota Twins,23,312.0,0.2888,0.3605,0.3151,0.3217,Ridge regression,807712
+Luis Arraez,San Francisco Giants,29,341.0,0.3404,0.3117,0.3278,0.3214,Ridge regression,650333
+Roman Anthony,Boston Red Sox,22,130.0,0.3057,0.374,0.3408,0.3214,Ridge regression,701350
+Jackson Holliday,Baltimore Orioles,22,107.0,0.2991,0.3023,0.3081,0.3214,Ridge regression,702616
+Brooks Lee,Minnesota Twins,25,320.0,0.3204,0.2836,0.3115,0.321,Ridge regression,686797
+Maikel Garcia,Kansas City Royals,26,294.0,0.3027,0.3446,0.3167,0.3204,Ridge regression,672580
+Rhys Hoskins,Cleveland Guardians,33,236.0,0.3009,0.322,0.3032,0.3202,Ridge regression,656555
+Andrew Vaughn,Milwaukee Brewers,28,140.0,0.395,0.3089,0.3439,0.3201,Ridge regression,683734
+Casey Schmitt,San Francisco Giants,27,313.0,0.3477,0.3049,0.3318,0.32,Ridge regression,669477
+Joey Loperfido,Houston Astros,27,113.0,0.2954,0.3786,0.3358,0.32,Ridge regression,694388
+Jake Burger,Texas Rangers,30,327.0,0.3293,0.292,0.3144,0.3198,Ridge regression,669394
+Trevor Larnach,Minnesota Twins,29,248.0,0.3566,0.3144,0.3354,0.3197,Ridge regression,663616
+Andrew Benintendi,Chicago White Sox,31,254.0,0.3084,0.3143,0.3067,0.3196,Ridge regression,643217
+Nolan Schanuel,Los Angeles Angels,24,274.0,0.3195,0.3251,0.3232,0.3187,Ridge regression,694384
+Amed Rosario,New York Yankees,30,139.0,0.3076,0.3191,0.3101,0.3184,Ridge regression,642708
+Ty France,San Diego Padres,31,180.0,0.3394,0.3001,0.3166,0.3184,Ridge regression,664034
+Carson Benge,New York Mets,23,330.0,0.3104,,0.315,0.3184,Ridge regression,701807
+A.J. Ewing,New York Mets,21,169.0,0.3405,,0.3311,0.3182,Ridge regression,805999
+Nico Hoerner,Chicago Cubs,29,372.0,0.2924,0.3224,0.2998,0.3182,Ridge regression,663538
+Joey Wiemer,Washington Nationals,27,83.0,0.3908,0.2942,0.3263,0.3179,Ridge regression,686894
+Jose Altuve,Houston Astros,36,265.0,0.3043,0.3289,0.3037,0.3177,Ridge regression,514888
+Miguel Andujar,San Diego Padres,31,209.0,0.2991,0.3515,0.3149,0.3177,Ridge regression,609280
+Brendan Donovan,Seattle Mariners,29,101.0,0.3654,0.335,0.3386,0.3176,Ridge regression,680977
+Alec Bohm,Philadelphia Phillies,29,317.0,0.2773,0.3204,0.291,0.3175,Ridge regression,664761
+Christian Yelich,Milwaukee Brewers,34,217.0,0.3192,0.3405,0.3183,0.3173,Ridge regression,592885
+Carlos Correa,Houston Astros,31,141.0,0.3421,0.3202,0.3238,0.3173,Ridge regression,621043
+Michael Harris II,Atlanta Braves,25,288.0,0.3549,0.2863,0.3319,0.3172,Ridge regression,671739
+Trea Turner,Philadelphia Phillies,33,361.0,0.2719,0.3492,0.2895,0.317,Ridge regression,607208
+Josh Bell,Minnesota Twins,33,323.0,0.3009,0.3214,0.3017,0.316,Ridge regression,605137
+Randal Grichuk,Chicago White Sox,34,119.0,0.3658,0.2862,0.3137,0.316,Ridge regression,545341
+Sal Frelick,Milwaukee Brewers,26,270.0,0.2794,0.3303,0.2997,0.316,Ridge regression,686217
+Jo Adell,Los Angeles Angels,27,350.0,0.3031,0.3293,0.3107,0.3159,Ridge regression,666176
+Eugenio Suárez,Cincinnati Reds,34,214.0,0.2838,0.3431,0.3009,0.3159,Ridge regression,553993
+Jorge Soler,Los Angeles Angels,34,264.0,0.3117,0.2954,0.2998,0.3159,Ridge regression,624585
+Bryce Eldridge,San Francisco Giants,21,163.0,0.3672,0.2408,0.3153,0.3157,Ridge regression,805811
+Cam Smith,Houston Astros,23,316.0,0.2888,0.296,0.2975,0.3157,Ridge regression,701358
+Luke Raley,Seattle Mariners,31,227.0,0.333,0.2888,0.3116,0.3156,Ridge regression,670042
+Bryson Stott,Philadelphia Phillies,28,298.0,0.298,0.3132,0.303,0.3155,Ridge regression,681082
+Teoscar Hernández,Los Angeles Dodgers,33,204.0,0.3378,0.3121,0.3191,0.3153,Ridge regression,606192
+Jonah Heim,Athletics,31,132.0,0.34,0.2641,0.2989,0.3152,Ridge regression,641680
+Evan Carter,Texas Rangers,23,231.0,0.2734,0.3192,0.2977,0.315,Ridge regression,694497
+Jung Hoo Lee,San Francisco Giants,27,301.0,0.3511,0.3179,0.3371,0.315,Ridge regression,808982
+Wenceel Pérez,Detroit Tigers,26,175.0,0.2579,0.3156,0.2891,0.3146,Ridge regression,672761
+Jacob Wilson,Athletics,24,214.0,0.3017,0.3457,0.3211,0.3143,Ridge regression,805779
+Dylan Beavers,Baltimore Orioles,24,122.0,0.3067,0.3449,0.3273,0.3142,Ridge regression,687637
+Giancarlo Stanton,New York Yankees,36,96.0,0.3115,0.3908,0.3401,0.3142,Ridge regression,519317
+Tyler Stephenson,Cincinnati Reds,29,221.0,0.2902,0.3168,0.3002,0.3141,Ridge regression,663886
+Josh Jung,Texas Rangers,28,336.0,0.3422,0.2959,0.3257,0.314,Ridge regression,673962
+Dominic Smith,Atlanta Braves,31,197.0,0.3129,0.3233,0.3124,0.3137,Ridge regression,642086
+Isaac Collins,Kansas City Royals,28,279.0,0.3009,0.3423,0.3134,0.3137,Ridge regression,686555
+Coby Mayo,Baltimore Orioles,24,231.0,0.2749,0.3004,0.2913,0.3137,Ridge regression,691723
+Victor Caratini,Minnesota Twins,32,231.0,0.3027,0.3161,0.3033,0.3136,Ridge regression,605170
+Davis Schneider,Toronto Blue Jays,27,118.0,0.2631,0.3485,0.3099,0.3136,Ridge regression,676914
+Konnor Griffin,Pittsburgh Pirates,20,213.0,0.3257,,0.3261,0.3135,Ridge regression,804606
+Samuel Basallo,Baltimore Orioles,21,258.0,0.3233,0.2439,0.3035,0.3134,Ridge regression,694212
+Caleb Durbin,Boston Red Sox,26,263.0,0.2879,0.3173,0.3009,0.3131,Ridge regression,702332
+Vaughn Grissom,Los Angeles Angels,25,177.0,0.305,,0.3107,0.3131,Ridge regression,687093
+Drew Romo,Chicago White Sox,24,108.0,0.2439,,0.2911,0.313,Ridge regression,691011
+Xander Bogaerts,San Diego Padres,33,306.0,0.2903,0.3113,0.2927,0.3129,Ridge regression,593428
+Otto Lopez,Miami Marlins,27,353.0,0.3593,0.2929,0.3374,0.3128,Ridge regression,672640
+Michael Conforto,Chicago Cubs,33,129.0,0.3343,0.2856,0.3035,0.3124,Ridge regression,624424
+Austin Riley,Atlanta Braves,29,328.0,0.281,0.316,0.2918,0.3123,Ridge regression,663586
+Troy Johnston,Colorado Rockies,29,280.0,0.3543,0.3256,0.3386,0.3121,Ridge regression,687859
+Kyle Karros,Colorado Rockies,23,263.0,0.3204,0.2669,0.3071,0.312,Ridge regression,691720
+José Fermín,St. Louis Cardinals,27,129.0,0.3116,0.3496,0.3278,0.312,Ridge regression,665877
+Tristan Peters,Chicago White Sox,26,233.0,0.3396,,0.3279,0.3119,Ridge regression,671976
+Nolan Gorman,St. Louis Cardinals,26,229.0,0.262,0.2895,0.279,0.3119,Ridge regression,669357
+Jared Young,New York Mets,30,116.0,0.3243,0.2974,0.307,0.3115,Ridge regression,676724
+Zach McKinstry,Detroit Tigers,31,199.0,0.2554,0.3306,0.2863,0.3115,Ridge regression,656716
+Mark Vientos,New York Mets,26,241.0,0.2727,0.301,0.288,0.3114,Ridge regression,668901
+Colton Cowser,Baltimore Orioles,26,205.0,0.3083,0.2828,0.301,0.3114,Ridge regression,681297
+Carson Kelly,Chicago Cubs,31,218.0,0.3337,0.3291,0.325,0.3113,Ridge regression,608348
+Heliot Ramos,San Francisco Giants,26,176.0,0.3109,0.3167,0.3142,0.3113,Ridge regression,671218
+Ceddanne Rafaela,Boston Red Sox,25,307.0,0.3343,0.3042,0.3253,0.3112,Ridge regression,678882
+Chase Meidroth,Chicago White Sox,24,339.0,0.3181,0.2922,0.3137,0.3112,Ridge regression,805367
+Yohendrick Piñango,Toronto Blue Jays,24,143.0,0.3279,,0.3216,0.311,Ridge regression,682818
+Noelvi Marte,Cincinnati Reds,24,93.0,0.2765,0.3186,0.3069,0.311,Ridge regression,682622
+Matt McLain,Cincinnati Reds,26,292.0,0.2885,0.2847,0.2913,0.311,Ridge regression,680574
+Marcell Ozuna,Pittsburgh Pirates,35,229.0,0.2712,0.3318,0.2887,0.311,Ridge regression,542303
+Jac Caglianone,Kansas City Royals,23,297.0,0.3501,0.2372,0.3177,0.3108,Ridge regression,695506
+Richie Palacios,Tampa Bay Rays,29,196.0,0.2908,0.3669,0.3189,0.3106,Ridge regression,680700
+Lawrence Butler,Athletics,25,227.0,0.265,0.308,0.2877,0.3105,Ridge regression,671732
+Ernie Clement,Toronto Blue Jays,30,323.0,0.3245,0.3064,0.3152,0.3103,Ridge regression,676391
+Jeremiah Jackson,Baltimore Orioles,26,206.0,0.2825,0.3331,0.3053,0.3103,Ridge regression,669236
+Jesús Sánchez,Toronto Blue Jays,28,234.0,0.3202,0.3021,0.3122,0.31,Ridge regression,660821
+Tommy Troy,Arizona Diamondbacks,24,102.0,0.299,,0.3106,0.3099,Ridge regression,694371
+Jonny DeLuca,Tampa Bay Rays,27,149.0,0.312,0.3475,0.3262,0.3099,Ridge regression,676356
+Harrison Bader,San Francisco Giants,32,111.0,0.2342,0.3439,0.2936,0.3098,Ridge regression,664056
+Sam Antonacci,Chicago White Sox,23,258.0,0.3558,,0.3407,0.3097,Ridge regression,803011
+Colt Keith,Detroit Tigers,24,242.0,0.2889,0.3233,0.3059,0.3097,Ridge regression,690993
+Francisco Lindor,New York Mets,32,118.0,0.2902,0.3475,0.3145,0.3096,Ridge regression,596019
+José Caballero,New York Yankees,29,253.0,0.3092,0.3073,0.307,0.3095,Ridge regression,676609
+Jahmai Jones,Detroit Tigers,28,102.0,0.2088,0.3955,0.3149,0.3094,Ridge regression,663330
+Esteury Ruiz,Miami Marlins,27,94.0,0.379,0.2617,0.3095,0.3092,Ridge regression,665923
+Dalton Rushing,Los Angeles Dodgers,25,165.0,0.3432,0.2543,0.306,0.3086,Ridge regression,687221
+Austin Martin,Minnesota Twins,27,254.0,0.3064,0.3313,0.3148,0.3081,Ridge regression,668885
+Willi Castro,Colorado Rockies,29,285.0,0.3242,0.2995,0.3136,0.3078,Ridge regression,650489
+Matt Shaw,Chicago Cubs,24,147.0,0.3192,0.2978,0.3123,0.3077,Ridge regression,807713
+Wade Meckler,Los Angeles Angels,26,109.0,0.3376,,0.322,0.3076,Ridge regression,685133
+Salvador Perez,Kansas City Royals,36,332.0,0.2482,0.3077,0.2621,0.3076,Ridge regression,521692
+Royce Lewis,Minnesota Twins,27,205.0,0.2873,0.2894,0.2917,0.3073,Ridge regression,668904
+Ryan McMahon,New York Yankees,31,202.0,0.274,0.3039,0.2861,0.3072,Ridge regression,641857
+Joe Mack,Miami Marlins,23,137.0,0.305,,0.3132,0.3071,Ridge regression,691788
+Miguel Amaya,Chicago Cubs,27,135.0,0.3278,0.3427,0.3312,0.3071,Ridge regression,665804
+Marcus Semien,New York Mets,35,318.0,0.2675,0.2928,0.2715,0.3069,Ridge regression,543760
+Masyn Winn,St. Louis Cardinals,24,307.0,0.2877,0.2956,0.2958,0.3068,Ridge regression,691026
+Ildemaro Vargas,Arizona Diamondbacks,34,269.0,0.2989,0.2905,0.2911,0.3067,Ridge regression,545121
+Nolan Arenado,Arizona Diamondbacks,35,299.0,0.302,0.2845,0.2903,0.3066,Ridge regression,571448
+Steven Kwan,Cleveland Guardians,28,311.0,0.2674,0.3078,0.2827,0.3065,Ridge regression,680757
+Garrett Mitchell,Milwaukee Brewers,27,255.0,0.3299,0.2596,0.3059,0.3064,Ridge regression,669003
+Brett Baty,New York Mets,26,277.0,0.2668,0.3211,0.2894,0.3063,Ridge regression,683146
+Cedric Mullins,Tampa Bay Rays,31,277.0,0.2751,0.2992,0.2828,0.3063,Ridge regression,656775
+Angel Martínez,Cleveland Guardians,24,243.0,0.3051,0.2717,0.2985,0.3062,Ridge regression,682657
+Brayan Rocchio,Cleveland Guardians,25,309.0,0.3198,0.2765,0.309,0.3062,Ridge regression,677587
+Cole Young,Seattle Mariners,22,341.0,0.2991,0.2721,0.2985,0.3061,Ridge regression,702284
+Mauricio Dubón,Atlanta Braves,31,310.0,0.3184,0.281,0.3034,0.306,Ridge regression,643289
+Austin Wells,New York Yankees,26,186.0,0.2314,0.2995,0.2696,0.3059,Ridge regression,669224
+Will Benson,Cincinnati Reds,28,114.0,0.286,0.2957,0.2943,0.3058,Ridge regression,666181
+Ezequiel Tovar,Colorado Rockies,24,294.0,0.2543,0.2984,0.2768,0.3058,Ridge regression,678662
+Blaze Alexander,Baltimore Orioles,27,203.0,0.3394,0.3113,0.3256,0.3052,Ridge regression,677942
+Agustín Ramírez,Miami Marlins,24,129.0,0.2916,0.2992,0.3016,0.3046,Ridge regression,682663
+Justin Crawford,Philadelphia Phillies,22,253.0,0.2775,,0.2977,0.3045,Ridge regression,702222
+Owen Caissie,Miami Marlins,23,224.0,0.3038,0.2433,0.289,0.3043,Ridge regression,683357
+Jeff McNeil,Athletics,34,268.0,0.2741,0.3214,0.2861,0.304,Ridge regression,643446
+Jasson Domínguez,New York Yankees,23,86.0,0.2884,0.3139,0.3098,0.3032,Ridge regression,691176
+Nick Loftin,Kansas City Royals,27,164.0,0.3191,0.2765,0.3015,0.303,Ridge regression,679845
+Jake McCarthy,Colorado Rockies,28,245.0,0.3528,0.2543,0.3153,0.303,Ridge regression,664983
+Edmundo Sosa,Philadelphia Phillies,30,145.0,0.2738,0.3293,0.3,0.3027,Ridge regression,624641
+Henry Bolte,Athletics,22,153.0,0.348,,0.3326,0.3025,Ridge regression,703607
+Alex Call,Los Angeles Dodgers,31,126.0,0.3235,0.3296,0.32,0.3024,Ridge regression,669743
+Yoán Moncada,Los Angeles Angels,31,130.0,0.2773,0.3366,0.3048,0.3023,Ridge regression,660162
+Hao-Yu Lee,Detroit Tigers,23,130.0,0.2888,,0.3069,0.3019,Ridge regression,701678
+Max Muncy,Athletics,23,155.0,0.3036,0.2745,0.2975,0.3018,Ridge regression,691777
+Andruw Monasterio,Boston Red Sox,29,133.0,0.2791,0.3253,0.3025,0.3017,Ridge regression,655316
+Mike Yastrzemski,Atlanta Braves,35,224.0,0.2879,0.3186,0.2934,0.3016,Ridge regression,573262
+Nathan Lukes,Toronto Blue Jays,31,170.0,0.3452,0.3148,0.3243,0.3011,Ridge regression,664770
+Matt Vierling,Detroit Tigers,29,229.0,0.2585,0.2767,0.2699,0.301,Ridge regression,663837
+Endy Rodríguez,Pittsburgh Pirates,26,100.0,0.3609,0.2247,0.2886,0.3008,Ridge regression,682848
+Jose Fernandez,Arizona Diamondbacks,22,177.0,0.2797,,0.3018,0.3006,Ridge regression,699912
+Jake Meyers,Houston Astros,30,144.0,0.2562,0.321,0.2893,0.3005,Ridge regression,676694
+Chandler Simpson,Tampa Bay Rays,25,311.0,0.276,0.295,0.2874,0.3003,Ridge regression,802415
+Nick Castellanos,San Diego Padres,34,122.0,0.2347,0.2982,0.2697,0.3002,Ridge regression,592206
+Daniel Schneemann,Cleveland Guardians,29,231.0,0.2788,0.2784,0.2813,0.3001,Ridge regression,682177
+David Fry,Cleveland Guardians,30,131.0,0.3021,0.2551,0.281,0.2997,Ridge regression,681807
+Jake Fraley,Tampa Bay Rays,31,90.0,0.3,0.3135,0.305,0.2994,Ridge regression,641584
+Connor Norby,Miami Marlins,26,233.0,0.2884,0.298,0.2958,0.2992,Ridge regression,681393
+Michael Massey,Kansas City Royals,28,207.0,0.312,0.2531,0.2907,0.2992,Ridge regression,686681
+Javier Sanoja,Miami Marlins,23,196.0,0.2865,0.2923,0.2964,0.2991,Ridge regression,691594
+Adolis García,Philadelphia Phillies,33,259.0,0.264,0.2835,0.2702,0.299,Ridge regression,666969
+J.T. Realmuto,Philadelphia Phillies,35,219.0,0.2711,0.3046,0.2802,0.299,Ridge regression,592663
+Brady House,Washington Nationals,23,177.0,0.2932,0.2469,0.283,0.2989,Ridge regression,691781
+Brice Matthews,Houston Astros,24,208.0,0.2463,0.2831,0.2716,0.2988,Ridge regression,694728
+Ezequiel Duran,Texas Rangers,27,276.0,0.3219,0.2473,0.2987,0.2985,Ridge regression,677649
+Jacob Young,Washington Nationals,26,267.0,0.2782,0.2628,0.2789,0.2985,Ridge regression,696285
+Luis Robert Jr.,New York Mets,28,98.0,0.296,0.2872,0.2941,0.2984,Ridge regression,673357
+Nick Gonzales,Pittsburgh Pirates,27,312.0,0.3167,0.2872,0.3081,0.2983,Ridge regression,693304
+Marcelo Mayer,Boston Red Sox,23,228.0,0.2633,0.2874,0.282,0.2982,Ridge regression,691785
+Zack Gelof,Athletics,26,228.0,0.3555,0.2223,0.3068,0.2982,Ridge regression,680869
+Kyle Higashioka,Texas Rangers,36,152.0,0.2963,0.2982,0.2907,0.298,Ridge regression,543309
+Drew Gilbert,San Francisco Giants,25,186.0,0.2934,0.2579,0.2854,0.298,Ridge regression,687551
+Anthony Volpe,New York Yankees,25,127.0,0.3176,0.284,0.3042,0.298,Ridge regression,683011
+Yainer Diaz,Houston Astros,27,142.0,0.2702,0.2978,0.2888,0.2978,Ridge regression,673237
+Keibert Ruiz,Washington Nationals,27,183.0,0.3275,0.261,0.3008,0.2977,Ridge regression,660688
+Nasim Nuñez,Washington Nationals,25,272.0,0.2737,0.3015,0.2888,0.2971,Ridge regression,683083
+Drew Millas,Washington Nationals,28,135.0,0.245,0.3479,0.299,0.2968,Ridge regression,686452
+José Tena,Washington Nationals,25,161.0,0.2814,0.2939,0.2933,0.2967,Ridge regression,677588
+Dane Myers,Cincinnati Reds,30,135.0,0.3248,0.2732,0.2979,0.2966,Ridge regression,667472
+Myles Straw,Toronto Blue Jays,31,146.0,0.2823,0.2973,0.2895,0.2966,Ridge regression,664702
+Masataka Yoshida,Boston Red Sox,32,176.0,0.2998,0.3,0.2968,0.2965,Ridge regression,807799
+Adrian Del Castillo,Arizona Diamondbacks,26,157.0,0.2418,0.2931,0.2747,0.2964,Ridge regression,680728
+Jordan Beck,Colorado Rockies,25,88.0,0.2301,0.3167,0.2913,0.2964,Ridge regression,687597
+Matt Wallner,Minnesota Twins,28,135.0,0.2493,0.3311,0.2937,0.2963,Ridge regression,670242
+Miguel Rojas,Los Angeles Dodgers,37,131.0,0.3049,0.3101,0.2984,0.2962,Ridge regression,500743
+Rob Refsnyder,Seattle Mariners,35,119.0,0.1921,0.3563,0.2787,0.2961,Ridge regression,608701
+Andrés Giménez,Toronto Blue Jays,27,282.0,0.2879,0.2673,0.2849,0.2961,Ridge regression,665926
+TJ Friedl,Cincinnati Reds,30,178.0,0.235,0.3308,0.2797,0.2955,Ridge regression,670770
+Alex Freeland,Los Angeles Dodgers,24,196.0,0.2871,0.2711,0.2882,0.2954,Ridge regression,690976
+Hyeseong Kim,Los Angeles Dodgers,27,131.0,0.2889,0.3038,0.2994,0.295,Ridge regression,808975
+Tristan Gray,Minnesota Twins,30,158.0,0.2815,0.2958,0.2892,0.2949,Ridge regression,656484
+Derek Hill,Philadelphia Phillies,30,122.0,0.3063,0.2699,0.2885,0.2948,Ridge regression,656537
+Danny Jansen,Texas Rangers,31,142.0,0.2642,0.3157,0.2897,0.2948,Ridge regression,643376
+Tyler Freeman,Colorado Rockies,27,213.0,0.3239,0.318,0.3202,0.2947,Ridge regression,671289
+Edouard Julien,Colorado Rockies,27,216.0,0.2842,0.284,0.2881,0.2941,Ridge regression,666397
+Edgar Quero,Chicago White Sox,23,172.0,0.2216,0.305,0.2716,0.2941,Ridge regression,700337
+Trevor Story,Boston Red Sox,33,176.0,0.2389,0.3179,0.274,0.294,Ridge regression,596115
+Josh Smith,Texas Rangers,28,117.0,0.2597,0.3093,0.2905,0.2937,Ridge regression,669701
+Jake Mangum,Pittsburgh Pirates,30,197.0,0.3093,0.306,0.3055,0.2937,Ridge regression,663968
+Logan O'Hoppe,Los Angeles Angels,26,198.0,0.285,0.2712,0.2852,0.2932,Ridge regression,681351
+Josh Lowe,Los Angeles Angels,28,144.0,0.2443,0.2818,0.2704,0.293,Ridge regression,666139
+Eli White,Atlanta Braves,32,110.0,0.27,0.2872,0.2809,0.2926,Ridge regression,642201
+Ryan Waldschmidt,Arizona Diamondbacks,23,122.0,0.2949,,0.3095,0.2925,Ridge regression,814439
+Dylan Crews,Washington Nationals,24,141.0,0.2797,0.2773,0.2874,0.2925,Ridge regression,686611
+Lane Thomas,Kansas City Royals,30,219.0,0.2989,0.2337,0.276,0.2925,Ridge regression,657041
+Carlos Narváez,Boston Red Sox,27,152.0,0.2527,0.3127,0.2867,0.2919,Ridge regression,665966
+Pedro Pagés,St. Louis Cardinals,27,146.0,0.2658,0.2736,0.277,0.2918,Ridge regression,686780
+Kyle Isbel,Kansas City Royals,29,183.0,0.2855,0.2853,0.2876,0.2916,Ridge regression,664728
+Ben Williamson,Tampa Bay Rays,25,193.0,0.283,0.2678,0.284,0.2912,Ridge regression,810938
+Daniel Susac,San Francisco Giants,25,115.0,0.2816,,0.3029,0.2912,Ridge regression,691740
+Mitch Garver,Seattle Mariners,35,120.0,0.2886,0.2816,0.2819,0.2912,Ridge regression,641598
+Isiah Kiner-Falefa,Boston Red Sox,31,132.0,0.313,0.2774,0.2938,0.2909,Ridge regression,643396
+David Hamilton,Milwaukee Brewers,28,221.0,0.2893,0.2583,0.2812,0.2901,Ridge regression,666152
+Taylor Trammell,Houston Astros,28,97.0,0.325,0.2804,0.3004,0.29,Ridge regression,666211
+Luis Rengifo,Milwaukee Brewers,29,209.0,0.2418,0.2732,0.2608,0.2897,Ridge regression,650859
+Freddy Fermin,San Diego Padres,31,150.0,0.2278,0.2789,0.2587,0.2893,Ridge regression,666023
+Starling Marte,Kansas City Royals,37,106.0,0.2974,0.3241,0.3025,0.2891,Ridge regression,516782
+Henry Davis,Pittsburgh Pirates,26,157.0,0.2478,0.2278,0.2517,0.2887,Ridge regression,680779
+Graham Pauley,Miami Marlins,25,97.0,0.2243,0.2982,0.2789,0.2886,Ridge regression,688363
+Leody Taveras,Baltimore Orioles,27,261.0,0.3011,0.2285,0.2805,0.2884,Ridge regression,665750
+Blake Dunn,Cincinnati Reds,27,155.0,0.316,0.2709,0.2975,0.2882,Ridge regression,694362
+Tyler O'Neill,Baltimore Orioles,31,156.0,0.2537,0.2945,0.2756,0.2879,Ridge regression,641933
+Bo Naylor,Cleveland Guardians,26,90.0,0.1962,0.2863,0.2647,0.2879,Ridge regression,666310
+Jorbit Vivas,Washington Nationals,25,178.0,0.3103,0.2402,0.2866,0.2879,Ridge regression,678391
+Brett Sullivan,Colorado Rockies,32,117.0,0.2677,0.2544,0.2652,0.2878,Ridge regression,664954
+Lenyn Sosa,Toronto Blue Jays,26,117.0,0.2104,0.3101,0.2747,0.2876,Ridge regression,672820
+Nathan Church,St. Louis Cardinals,25,209.0,0.2993,0.2303,0.2795,0.2873,Ridge regression,701675
+Lourdes Gurriel Jr.,Arizona Diamondbacks,32,140.0,0.2491,0.3042,0.2779,0.2873,Ridge regression,666971
+Adam Frazier,Los Angeles Angels,34,93.0,0.2801,0.2981,0.2882,0.2872,Ridge regression,624428
+Victor Scott II,St. Louis Cardinals,25,184.0,0.2446,0.2727,0.2674,0.2871,Ridge regression,687363
+Jake Cronenworth,San Diego Padres,32,114.0,0.2279,0.3312,0.285,0.2871,Ridge regression,630105
+Alek Thomas,Arizona Diamondbacks,26,100.0,0.2419,0.2853,0.2772,0.2869,Ridge regression,677950
+Javier Báez,Detroit Tigers,33,82.0,0.2895,0.2912,0.2891,0.2866,Ridge regression,595879
+Christian Vázquez,Houston Astros,35,175.0,0.2622,0.247,0.2565,0.2866,Ridge regression,543877
+Joey Ortiz,Milwaukee Brewers,27,191.0,0.2434,0.2617,0.2605,0.2864,Ridge regression,687401
+Taylor Walls,Tampa Bay Rays,29,224.0,0.2795,0.2634,0.2768,0.2862,Ridge regression,670764
+Andrew McCutchen,Texas Rangers,39,83.0,0.2454,0.307,0.278,0.2849,Ridge regression,457705
+Ryan Kreidler,Minnesota Twins,28,104.0,0.379,0.1495,0.2591,0.2842,Ridge regression,668952
+Thomas Saggese,St. Louis Cardinals,24,82.0,0.2315,0.281,0.2762,0.284,Ridge regression,695336
+Patrick Bailey,Cleveland Guardians,27,169.0,0.2145,0.2638,0.2491,0.2839,Ridge regression,672275
+Jared Triolo,Pittsburgh Pirates,28,168.0,0.2687,0.2939,0.2843,0.2836,Ridge regression,669707
+Darell Hernaiz,Athletics,24,134.0,0.2767,0.2649,0.2811,0.2833,Ridge regression,687231
+Ke'Bryan Hayes,Cincinnati Reds,29,128.0,0.1884,0.2646,0.2415,0.2829,Ridge regression,663647
+Brenton Doyle,Colorado Rockies,28,122.0,0.2491,0.28,0.2733,0.2827,Ridge regression,686668
+Leo Rivas,Seattle Mariners,28,120.0,0.2148,0.3319,0.2833,0.2827,Ridge regression,660844
+Blake Perkins,Milwaukee Brewers,29,98.0,0.2323,0.2851,0.2712,0.2826,Ridge regression,663368
+Oswald Peraza,Los Angeles Angels,26,248.0,0.3097,0.2126,0.2807,0.2823,Ridge regression,672724
+Tyrone Taylor,New York Mets,32,106.0,0.2399,0.2628,0.2595,0.2819,Ridge regression,621438
+Tyler Heineman,Toronto Blue Jays,35,94.0,0.2043,0.3394,0.2826,0.2812,Ridge regression,623168
+Nick Fortes,Tampa Bay Rays,29,197.0,0.2753,0.2843,0.282,0.2812,Ridge regression,663743
+Ryan Vilade,Tampa Bay Rays,27,139.0,0.338,0.1507,0.256,0.2807,Ridge regression,668723
+Jake Rogers,Detroit Tigers,31,82.0,0.2191,0.2683,0.2593,0.2788,Ridge regression,668670
+Luisangel Acuña,Chicago White Sox,24,147.0,0.233,0.2566,0.2592,0.2785,Ridge regression,682668
+J.C. Escarra,New York Yankees,31,92.0,0.225,0.2787,0.2646,0.278,Ridge regression,641555
+Luis Torrens,New York Mets,30,153.0,0.2548,0.2759,0.2699,0.2778,Ridge regression,620443
+Justin Foscue,Texas Rangers,27,92.0,0.3551,0.1378,0.2421,0.2777,Ridge regression,679822
+Alejandro Osuna,Texas Rangers,23,157.0,0.2953,0.269,0.2918,0.2775,Ridge regression,696030
+Connor Wong,Boston Red Sox,30,107.0,0.3339,0.2289,0.2787,0.2773,Ridge regression,657136
+Nick Yorke,Pittsburgh Pirates,24,86.0,0.252,0.2549,0.269,0.277,Ridge regression,694377
+Jorge Mateo,Atlanta Braves,31,113.0,0.3103,0.2125,0.2629,0.2766,Ridge regression,622761
+Austin Hedges,Cleveland Guardians,33,123.0,0.3065,0.2376,0.2717,0.2763,Ridge regression,595978
+Brandon Lockridge,Milwaukee Brewers,29,96.0,0.3194,0.2532,0.2846,0.2747,Ridge regression,663604
+Jose Siri,Los Angeles Angels,30,80.0,0.3479,0.1456,0.2361,0.2745,Ridge regression,642350
+James Outman,Detroit Tigers,29,101.0,0.2425,0.2349,0.2508,0.2739,Ridge regression,681546
+Rafael Marchán,Philadelphia Phillies,27,81.0,0.1517,0.2621,0.2409,0.2731,Ridge regression,665561
+Hunter Feduccia,Tampa Bay Rays,29,114.0,0.2699,0.2247,0.2558,0.2699,Ridge regression,676439
+Mickey Gasper,Boston Red Sox,30,119.0,0.2736,0.2281,0.2579,0.2689,Ridge regression,681508
+MJ Melendez,New York Mets,27,144.0,0.2974,0.15,0.24,0.2667,Ridge regression,669004
+Jorge Barrosa,Arizona Diamondbacks,25,120.0,0.2601,0.1701,0.2325,0.2661,Ridge regression,678489
+Donovan Walton,Los Angeles Angels,32,89.0,0.3603,0.11,0.224,0.2515,Ridge regression,622268
+Nicky Lopez,Texas Rangers,31,89.0,0.3121,0.13,0.2199,0.2413,Ridge regression,670032
+Leo Jiménez,Miami Marlins,25,93.0,0.2403,0.1374,0.2078,0.2347,Ridge regression,677870
