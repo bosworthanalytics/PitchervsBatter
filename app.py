@@ -1702,7 +1702,7 @@ hits.forEach(function(h){{
                 if "stand" in _ba_raw.columns:
                     _sv = _ba_raw["stand"].dropna()
                     if not _sv.empty: _stand = _sv.mode()[0]
-                _dir = -1.0 if _stand == "L" else 1.0      # +1 = RHB, -1 = LHB (mirrored)
+                _dir = 1.0 if _stand == "L" else -1.0      # RHB barrel→lower-left, LHB mirrored
                 _hand_txt = ("Left-Handed Batter" if _stand == "L"
                              else "Right-Handed Batter" if _stand == "R" else "Switch Hitter")
                 _rad = math.radians(_ba_overall)
