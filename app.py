@@ -1696,25 +1696,34 @@ hits.forEach(function(h){{
             _ba_agg["pname"] = _ba_agg["pitch_type"].map(PITCH_NAMES).fillna(_ba_agg["pitch_type"])
             _ba_c1, _ba_c2 = st.columns([2, 3])
             with _ba_c1:
-                # ── Bat-angle illustration (bat tilted at the attack angle) ──────────
+                # ── Bat-angle illustration (mirrored by batter handedness) ───────────
+                _stand = "R"
+                if "stand" in _ba_raw.columns:
+                    _sv = _ba_raw["stand"].dropna()
+                    if not _sv.empty: _stand = _sv.mode()[0]
+                _dir = -1.0 if _stand == "L" else 1.0
+                _hand_txt = ("Left-Handed Batter" if _stand == "L"
+                             else "Right-Handed Batter" if _stand == "R" else "Switch Hitter")
                 _rad = math.radians(_ba_overall)
-                _px, _py, _L, _r = 55.0, 150.0, 200.0, 50.0
-                _ex = _px + math.cos(_rad) * _L;        _ey = _py - math.sin(_rad) * _L
-                _bx = _px + math.cos(_rad) * _L * 0.60; _by = _py - math.sin(_rad) * _L * 0.60
-                _asx, _asy = _px + _r, _py
-                _aex, _aey = _px + math.cos(_rad) * _r, _py - math.sin(_rad) * _r
-                _arc = f"M {_asx:.1f} {_asy:.1f} A {_r} {_r} 0 0 0 {_aex:.1f} {_aey:.1f}"
-                _lx = _px + math.cos(_rad / 2) * (_r + 18)
-                _ly = _py - math.sin(_rad / 2) * (_r + 18)
+                _Vx, _Vy, _L, _r = (228.0 if _dir < 0 else 72.0), 145.0, 178.0, 46.0
+                _lvx = max(14.0, min(286.0, _Vx + _dir * 214))
+                _ex = _Vx + _dir * math.cos(_rad) * _L;        _ey = _Vy - math.sin(_rad) * _L
+                _bx = _Vx + _dir * math.cos(_rad) * _L * 0.55; _by = _Vy - math.sin(_rad) * _L * 0.55
+                _asx, _asy = _Vx + _dir * _r, _Vy
+                _aex, _aey = _Vx + _dir * math.cos(_rad) * _r, _Vy - math.sin(_rad) * _r
+                _sweep = 0 if _dir > 0 else 1
+                _arc = f"M {_asx:.1f} {_asy:.1f} A {_r} {_r} 0 0 {_sweep} {_aex:.1f} {_aey:.1f}"
+                _lvl_anchor = "start" if _dir < 0 else "end"
+                _lx = _Vx + _dir * 30
                 _svg = (
                     f'<svg viewBox="0 0 300 200" width="100%" style="max-height:190px;display:block;margin:auto">'
-                    f'<line x1="55" y1="150" x2="288" y2="150" stroke="#8B9EC4" stroke-width="1.3" stroke-dasharray="5 4"/>'
-                    f'<text x="288" y="166" fill="#8B9EC4" font-size="9" text-anchor="end">level (0°)</text>'
-                    f'<path d="{_arc}" fill="none" stroke="#C8102E" stroke-width="1.6"/>'
-                    f'<text x="{_lx:.1f}" y="{_ly:.1f}" fill="#C8102E" font-size="14" font-weight="700" text-anchor="middle">{_ba_overall}°</text>'
-                    f'<line x1="55" y1="150" x2="{_bx:.1f}" y2="{_by:.1f}" stroke="#9A7B3F" stroke-width="5" stroke-linecap="round"/>'
+                    f'<line x1="{_Vx:.0f}" y1="{_Vy:.0f}" x2="{_lvx:.0f}" y2="{_Vy:.0f}" stroke="#8B9EC4" stroke-width="1.3" stroke-dasharray="5 4"/>'
+                    f'<text x="{_lvx:.0f}" y="{_Vy+14:.0f}" fill="#8B9EC4" font-size="9" text-anchor="{_lvl_anchor}">level (0°)</text>'
+                    f'<path d="{_arc}" fill="none" stroke="#C8102E" stroke-width="1.8"/>'
+                    f'<line x1="{_Vx:.1f}" y1="{_Vy:.1f}" x2="{_bx:.1f}" y2="{_by:.1f}" stroke="#9A7B3F" stroke-width="5" stroke-linecap="round"/>'
                     f'<line x1="{_bx:.1f}" y1="{_by:.1f}" x2="{_ex:.1f}" y2="{_ey:.1f}" stroke="#E8C97A" stroke-width="10" stroke-linecap="round"/>'
-                    f'<circle cx="55" cy="150" r="6" fill="#F4F8FF"/>'
+                    f'<circle cx="{_Vx:.0f}" cy="{_Vy:.0f}" r="6" fill="#F4F8FF"/>'
+                    f'<text x="{_lx:.1f}" y="{_Vy+27:.0f}" fill="#C8102E" font-size="17" font-weight="800" text-anchor="middle">{_ba_overall}°</text>'
                     f'</svg>'
                 )
                 st.markdown(
@@ -1724,7 +1733,7 @@ hits.forEach(function(h){{
                     f'text-transform:uppercase;text-align:center;margin-bottom:6px">Average Bat Angle</div>'
                     f'{_svg}'
                     f'<div style="font-size:.74rem;color:#8B9EC4;text-align:center;margin-top:4px">'
-                    f'attack angle of the bat at contact</div>'
+                    f'attack angle at contact · {_hand_txt}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
